@@ -777,9 +777,7 @@ void LoadSettings()
 		if (strncmp(rec.levelPack, InstalledLevelPacks[Teller], MaxLevelPackNameLength - 1) == 0)
 		{
 			SelectedLevelPack = Teller;
-			//every name was stored with snprintf into MaxLevelPackNameLength, the precision
-			//changes nothing but tells the compiler it can not run past the entry
-			snprintf(LevelPackName, sizeof(LevelPackName), "%.*s", MaxLevelPackNameLength - 1, InstalledLevelPacks[SelectedLevelPack]);
+			LevelPackName = InstalledLevelPacks[SelectedLevelPack];
 			break;
 		}
 }
@@ -808,20 +806,9 @@ void SaveSettings()
 
 void SearchForLevelPacks()
 {
-	InstalledLevelPacksCount = 0;
+	//every pack is built in, nothing to search for
+	InstalledLevelPacksCount = MaxLevelPacks;
 	SelectedLevelPack = 0;
-	snprintf(InstalledLevelPacks[InstalledLevelPacksCount], MaxLevelPackNameLength, "%s", "bips.bip");
-	InstalledLevelPacksCount++;
-	snprintf(InstalledLevelPacks[InstalledLevelPacksCount], MaxLevelPackNameLength, "%s", "bips_gold.bip");
-	InstalledLevelPacksCount++;
-	snprintf(InstalledLevelPacks[InstalledLevelPacksCount], MaxLevelPackNameLength, "%s", "bips_platinum.bip");
-	InstalledLevelPacksCount++;
-	snprintf(InstalledLevelPacks[InstalledLevelPacksCount], MaxLevelPackNameLength, "%s", "bips_gold_2_players.bip");
-	InstalledLevelPacksCount++;
-
-	if (InstalledLevelPacksCount > 0)
-	{
-		snprintf(LevelPackName, sizeof(LevelPackName), "%s", InstalledLevelPacks[SelectedLevelPack]);
-	}
+	LevelPackName = InstalledLevelPacks[SelectedLevelPack];
 }
 

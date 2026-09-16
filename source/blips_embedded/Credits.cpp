@@ -8,14 +8,13 @@
 
 
 //char CreditsTekst[100], CreditsTekst2[100], CreditsTekst3[100];
-//the credits need 100 bytes, leave room to edit them
-char CreditsTekst[128];
-	
+//the credits never change, print the literal instead of copying it into a ram buffer
+static const char* const CreditsTekst = "Creator:\njoyrider3774\njoyrider3774.itch.io\nOrig Creator:\nBryant Brownell\nbryant.brownell@\ngmail.com";
+
 void CreditsInit()
 {
 	//this screen is about to be rebuilt, drop any cached draw signature
 	ScreenForceRedraw();
-	snprintf(CreditsTekst, sizeof(CreditsTekst), "Creator:\njoyrider3774\njoyrider3774.itch.io\nOrig Creator:\nBryant Brownell\nbryant.brownell@\ngmail.com");
 	//snprintf(CreditsTekst, sizeof(CreditsTekst), "Creator:joyrider3774\njoyrider3774.itch.io");
 	//snprintf(CreditsTekst2, sizeof(CreditsTekst2), "Bryant Brownell\nbryant.brownell@gmail.com");
 	// if (InstalledLevelPacksCount > 0)

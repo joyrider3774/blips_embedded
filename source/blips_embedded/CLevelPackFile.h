@@ -74,7 +74,7 @@ struct CLevelPackFile
 	LevelMeta Meta;
 	char author[MAXAUTHORLEN];
 	char set[MAXSETLEN];
-	char filename[MaxLevelPackNameLength];
+	const char* filename; //points at one of the built in pack names, NULL = none loaded yet
 	uint8_t LevelCount;  //0 .. MAXLEVELS
 	uint8_t LoadedLevel; //1 based number of the level held in Level / Meta, 0 = none
 	bool Loaded;
@@ -83,7 +83,7 @@ struct CLevelPackFile
 CLevelPackFile* CLevelPackFile_Create();
 void CLevelPackFile_Destroy(CLevelPackFile* LevelPackFile);
 bool CLevelPackFile_parseText(CLevelPackFile* LevelPackFile, const unsigned char* text, size_t textLen, uint8_t maxWidth, uint8_t maxHeight, int8_t level);
-bool CLevelPackFile_loadFile(CLevelPackFile* LevelPackFile, char* filename, uint8_t maxWidth, uint8_t maxHeight, int8_t level);
+bool CLevelPackFile_loadFile(CLevelPackFile* LevelPackFile, const char* filename, uint8_t maxWidth, uint8_t maxHeight, int8_t level);
 bool CLevelPackFile_loadLevel(CLevelPackFile* LevelPackFile, int8_t level);
 
 #endif

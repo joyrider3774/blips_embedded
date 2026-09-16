@@ -31,7 +31,7 @@ CLevelPackFile* CLevelPackFile_Create()
 	Result->LoadedLevel = 0;
 	memset(Result->author, 0, MAXAUTHORLEN);
 	memset(Result->set, 0, MAXSETLEN);
-	memset(Result->filename, 0, MaxLevelPackNameLength);
+	Result->filename = NULL;
 	return Result;
 }
 
@@ -44,16 +44,13 @@ void CLevelPackFile_Destroy(CLevelPackFile* LPackFile)
 	}
 }
 
-bool CLevelPackFile_loadFile(CLevelPackFile* LPackFile, char* filename, uint8_t maxWidth, uint8_t maxHeight, int8_t level)
+bool CLevelPackFile_loadFile(CLevelPackFile* LPackFile, const char* filename, uint8_t maxWidth, uint8_t maxHeight, int8_t level)
 {
 	bool Result = false;
 
-	//remember the pack so a single level can be reloaded from it later on
-	if(filename != LPackFile->filename)
-	{
-		memset(LPackFile->filename, 0, MaxLevelPackNameLength);
-		snprintf(LPackFile->filename, sizeof(LPackFile->filename), "%s", filename);
-	}
+	//remember the pack so a single level can be reloaded from it later on. The names
+	//live in flash for the whole run, keeping the pointer is enough
+	LPackFile->filename = filename;
 
 	//the packs carry no terminator and the linker puts them back to back in flash,
 	//so their length is the only thing that stops one pack running into the next
@@ -73,7 +70,7 @@ bool CLevelPackFile_loadFile(CLevelPackFile* LPackFile, char* filename, uint8_t 
 //reparses the pack that was loaded last so the requested level ends up in memory
 bool CLevelPackFile_loadLevel(CLevelPackFile* LPackFile, int8_t level)
 {
-	if(!LPackFile->filename[0])
+	if(!LPackFile->filename)
 		return false;
 	return CLevelPackFile_loadFile(LPackFile, LPackFile->filename, NrOfCols, NrOfRows, level);
 }

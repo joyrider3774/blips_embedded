@@ -53,7 +53,7 @@ void CWorldParts_Save(CWorldParts* WorldParts, char *Filename);
 bool CWorldParts_LoadFromLevelPackFile(CWorldParts* WorldParts, CLevelPackFile* LPFile, int8_t level, bool doCenterLevel);
 void CWorldParts_Load(CWorldParts* WorldParts, char *Filename);
 #if FLOODFILLFLOOR
-void CWorldParts_DrawFloor(CWorldParts* WorldParts, CWorldPart* Player, CWorldPart* Player2);
+bool CWorldParts_DrawFloor(CWorldParts* WorldParts, CWorldPart* Player, CWorldPart* Player2);
 #endif
 void CWorldParts_Destroy(CWorldParts* WorldParts);
 #endif

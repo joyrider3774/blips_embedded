@@ -11,7 +11,7 @@
 
 #define FLOODFILLFLOOR 1
 
-#define FPSLOCK 0
+#define FPSLOCK 1
 
 //where drawing goes:
 //  0  = no buffer, only the board cells that changed are composed and sent to the display

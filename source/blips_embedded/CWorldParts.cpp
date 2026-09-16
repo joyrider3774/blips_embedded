@@ -2,10 +2,16 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include "CWorldParts.h"
 #include "CWorldPart.h"
 #include "GameFuncs.h"
 
+#if FLOODFILLFLOOR
+//the floodfill buffers come and go with the parts list, defined with the floodfill below
+static void FloodCreate();
+static void FloodDestroy();
+#endif
 
 CWorldParts* CWorldParts_Create()
 {
@@ -22,6 +28,9 @@ CWorldParts* CWorldParts_Create()
 		Result->ActivePlayerFlicker = 0;
 		Result->isLevelPackFileLevel = false;
 		Result->ViewPort = CViewPort_Create(0, 0, NrOfColsVisible, NrOfRowsVisible, 0, 0, NrOfCols - 1, NrOfRows - 1);
+#if FLOODFILLFLOOR
+		FloodCreate();
+#endif
 	}
 	return Result;
 }
@@ -239,7 +248,8 @@ void CWorldParts_Remove_Type(CWorldParts* WorldParts, int8_t PlayFieldXin,int8_t
 
 void CWorldParts_Add(CWorldParts* WorldParts, CWorldPart *WorldPart)
 {
-	//CWorldPart_Create returns NULL once the part pool is exhausted, adding that
+	//CWorldPart_Create returns NULL once the part pool is exhausted (or could not be
+	//allocated), adding that
 	//to the list would take the whole board down on the next draw
 	if (!WorldPart)
 		return;
@@ -384,28 +394,52 @@ static_assert(NrOfRows * NrOfCols <= 65535, "tile indexes do not fit in uint16_t
 static inline bool BitGet(const uint8_t* bits, uint16_t i) { return (bits[i >> 3] >> (i & 7)) & 1; }
 static inline void BitSet(uint8_t* bits, uint16_t i) { bits[i >> 3] |= (uint8_t)1 << (i & 7); }
 
-static uint8_t visited[TILEBITS];
-//playfield tiles that hold a wall, filled once before the floodfills so they do not have
-//to look through every part of the level for every tile they visit
-static uint8_t wallHere[TILEBITS];
-//playfield tiles the floodfill decided are floor, this is what gets painted
-static uint8_t floorHere[TILEBITS];
+//everything the floodfill works with, kept in one block so it is a single allocation
+typedef struct FloodBuffers FloodBuffers;
+struct FloodBuffers
+{
+	uint8_t visited[TILEBITS];
+	//playfield tiles that hold a wall, filled once before the floodfills so they do not have
+	//to look through every part of the level for every tile they visit
+	uint8_t wallHere[TILEBITS];
+	//playfield tiles the floodfill decided are floor, this is what gets painted
+	uint8_t floorHere[TILEBITS];
 #if SCREENBUFFER == 0
-static uint8_t floorPrev[TILEBITS];
+	uint8_t floorPrev[TILEBITS];
 #endif
-//tiles still to handle, held as Y * NrOfCols + X. A tile is marked visited when it
-//is pushed, so it can enter this list only once and the list can never hold more
-//tiles than the playfield has
-static uint16_t floodStack[NrOfRows * NrOfCols];
+	//tiles still to handle, held as Y * NrOfCols + X. A tile is marked visited when it
+	//is pushed, so it can enter this list only once and the list can never hold more
+	//tiles than the playfield has
+	uint16_t floodStack[NrOfRows * NrOfCols];
+};
+//taken from the heap by CWorldParts_Create and handed back by CWorldParts_Destroy.
+//NULL outside of that, or when the allocation failed
+static FloodBuffers* Flood = NULL;
 static uint16_t floodStackCount = 0;
+
+static void FloodCreate()
+{
+	if (Flood)
+		return;
+	//calloc zeroes floorPrev, as the old static array started out
+	Flood = (FloodBuffers*)calloc(1, sizeof(FloodBuffers));
+	if (!Flood)
+		Platform_Log("FloodCreate: out of heap, %" PRIu32 " free\n", Platform_FreeHeap());
+}
+
+static void FloodDestroy()
+{
+	free(Flood);
+	Flood = NULL;
+}
 
 //spreading passes one tile past the playfield on either side, so X and Y are signed
 static void FloodPush(int8_t X, int8_t Y)
 {
-	if (X < 0 || X >= NrOfCols || Y < 0 || Y >= NrOfRows || BitGet(visited, TILEBIT(X, Y)))
+	if (X < 0 || X >= NrOfCols || Y < 0 || Y >= NrOfRows || BitGet(Flood->visited, TILEBIT(X, Y)))
 		return;
-	BitSet(visited, TILEBIT(X, Y));
-	floodStack[floodStackCount++] = (uint16_t)(Y * NrOfCols + X);
+	BitSet(Flood->visited, TILEBIT(X, Y));
+	Flood->floodStack[floodStackCount++] = (uint16_t)(Y * NrOfCols + X);
 }
 
 // Floodfill, iterative. Recursing here used one call frame per open tile, which
@@ -417,7 +451,7 @@ void FloodFill(CWorldParts* aWorldParts, int8_t X, int8_t Y)
 
 	while (floodStackCount > 0)
 	{
-		uint16_t Tile = floodStack[--floodStackCount];
+		uint16_t Tile = Flood->floodStack[--floodStackCount];
 		uint8_t TileX = Tile % NrOfCols;
 		uint8_t TileY = Tile / NrOfCols;
 
@@ -429,13 +463,13 @@ void FloodFill(CWorldParts* aWorldParts, int8_t X, int8_t Y)
 		}
 
 		//a wall blocks the fill
-		if (BitGet(wallHere, TILEBIT(TileX, TileY)))
+		if (BitGet(Flood->wallHere, TILEBIT(TileX, TileY)))
 		{
 			continue;
 		}
 
 		// Remember that this tile shows floor, the compositor paints it
-		BitSet(floorHere, TILEBIT(TileX, TileY));
+		BitSet(Flood->floorHere, TILEBIT(TileX, TileY));
 
 		// Spread to the neighbouring tiles
 		FloodPush(TileX + 1, TileY);
@@ -445,27 +479,30 @@ void FloodFill(CWorldParts* aWorldParts, int8_t X, int8_t Y)
 	}
 }
 
-void  CWorldParts_DrawFloor(CWorldParts* WorldParts, CWorldPart* Player, CWorldPart* Player2)
+//false when there are no floodfill buffers, Flood->floorHere can not be read then
+bool CWorldParts_DrawFloor(CWorldParts* WorldParts, CWorldPart* Player, CWorldPart* Player2)
 {
+	// This runs every frame, the buffers were allocated once by CWorldParts_Create
+	if (!Flood)
+		return false;
 	if (!Player && !Player2)
-		return;
-	// The visited array is static, this runs every frame and there is no heap left
-	// to spare for it, let alone to hand back a failed allocation to the floodfill
-	memset(visited, 0, sizeof(visited));
-	memset(floorHere, 0, sizeof(floorHere));
+		return true;
+	memset(Flood->visited, 0, sizeof(Flood->visited));
+	memset(Flood->floorHere, 0, sizeof(Flood->floorHere));
 	//the same parts CWorldParts_ItemExists(..., IDWall) finds, in one pass over the level
-	memset(wallHere, 0, sizeof(wallHere));
+	memset(Flood->wallHere, 0, sizeof(Flood->wallHere));
 	for (uint16_t Teller = 0; Teller < WorldParts->ItemCount; Teller++)
 	{
 		CWorldPart* Part = WorldParts->Items[Teller];
 		if ((Part->Type == IDWall) && (Part->PlayFieldX >= 0) && (Part->PlayFieldX < NrOfCols) &&
 			(Part->PlayFieldY >= 0) && (Part->PlayFieldY < NrOfRows))
-			BitSet(wallHere, TILEBIT(Part->PlayFieldX, Part->PlayFieldY));
+			BitSet(Flood->wallHere, TILEBIT(Part->PlayFieldX, Part->PlayFieldY));
 	}
 	if(Player)
 		FloodFill(WorldParts, Player->PlayFieldX, Player->PlayFieldY);
 	if(Player2)
 		FloodFill(WorldParts, Player2->PlayFieldX, Player2->PlayFieldY);
+	return true;
 }
 #endif
 void CWorldParts_Move(CWorldParts* WorldParts)
@@ -631,11 +668,14 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 	//the floodfill only records which tiles are floor, stamp them here
 	const int16_t msx = WorldParts->ViewPort->MinScreenX;
 	const int16_t msy = WorldParts->ViewPort->MinScreenY;
-	CWorldParts_DrawFloor(WorldParts, WorldParts->Player1, WorldParts->Player2);
-	for (uint8_t ty = 0; ty < NrOfRows; ty++)
-		for (uint8_t tx = 0; tx < NrOfCols; tx++)
-			if (BitGet(floorHere, TILEBIT(tx, ty)))
-				DrawImage(tx * TileWidth - msx, ty * TileHeight - msy, TileWidth, TileHeight, IMGFloor);
+	//without the floodfill buffers there is no floor to paint this frame
+	if (CWorldParts_DrawFloor(WorldParts, WorldParts->Player1, WorldParts->Player2))
+	{
+		for (uint8_t ty = 0; ty < NrOfRows; ty++)
+			for (uint8_t tx = 0; tx < NrOfCols; tx++)
+				if (BitGet(Flood->floorHere, TILEBIT(tx, ty)))
+					DrawImage(tx * TileWidth - msx, ty * TileHeight - msy, TileWidth, TileHeight, IMGFloor);
+	}
 #endif
 
 	CWorldParts_Draw(WorldParts);
@@ -816,10 +856,11 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 
 #if FLOODFILLFLOOR
 	//work out where floor is, and repaint everything if that changed
-	CWorldParts_DrawFloor(WorldParts, WorldParts->Player1, WorldParts->Player2);
-	if (memcmp(floorHere, floorPrev, sizeof(floorHere)) != 0)
+	//without the floodfill buffers there is no floor to paint this frame
+	const bool hasFloor = CWorldParts_DrawFloor(WorldParts, WorldParts->Player1, WorldParts->Player2);
+	if (hasFloor && (memcmp(Flood->floorHere, Flood->floorPrev, sizeof(Flood->floorHere)) != 0))
 	{
-		memcpy(floorPrev, floorHere, sizeof(floorHere));
+		memcpy(Flood->floorPrev, Flood->floorHere, sizeof(Flood->floorHere));
 		CWorldParts_MarkAllDirty();
 	}
 #endif
@@ -879,7 +920,7 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 			int16_t wy = bandY0 + msy;
 			for (int16_t ty = wy / TileHeight; ty <= (wy + BANDHEIGHT - 1) / TileHeight; ty++)
 				for (int16_t tx = wx0 / TileWidth; tx <= wx1 / TileWidth; tx++)
-					if ((tx >= 0) && (tx < NrOfCols) && (ty >= 0) && (ty < NrOfRows) && BitGet(floorHere, TILEBIT(tx, ty)))
+					if (hasFloor && (tx >= 0) && (tx < NrOfCols) && (ty >= 0) && (ty < NrOfRows) && BitGet(Flood->floorHere, TILEBIT(tx, ty)))
 						BandSprite(tx * TileWidth - msx, ty * TileHeight - msy, IMGFloor, false);
 #endif
 
@@ -933,4 +974,7 @@ void CWorldParts_Destroy(CWorldParts* WorldParts)
 		CWorldPart_Destroy(WorldParts->Items[Teller]);
 		WorldParts->Items[Teller] = NULL;
 	}
+#if FLOODFILLFLOOR
+	FloodDestroy();
+#endif
 }
