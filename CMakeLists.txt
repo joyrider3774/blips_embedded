@@ -71,7 +71,7 @@ if(NOT FORCEDEBUG MATCHES "^(0|1)$")
     message(FATAL_ERROR "FORCEDEBUG has to be 0 or 1, not ${FORCEDEBUG}")
 endif()
 
-set(GAME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Source/blips_embedded")
+set(GAME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source/blips_embedded")
 
 # the game's files, not the ESPboy platform or its library (lib/ is not globbed)
 file(GLOB GAME_SOURCES CONFIGURE_DEPENDS "${GAME_DIR}/*.cpp")
