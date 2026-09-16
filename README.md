@@ -92,9 +92,6 @@ Game is a remake of dos bips game made by Bryant Brownell and based on the gp2x 
 - Caryn Brownell
 - The PocoMan Team
 
-### Music
-Music was made by donskeeto
-
 ### Graphics
 - dollar coin - [kenney game assets all in 1](https://kenney.itch.io/kenney-game-assets) - [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/)
 - wall: [1001.com](https://opengameart.org/content/sokoban-pack) - [Attribution-ShareAlike 3.0 Unported](https://creativecommons.org/licenses/by-sa/3.0/)
