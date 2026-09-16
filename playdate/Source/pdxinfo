@@ -1,0 +1,6 @@
+name=Blips
+author=Willems Davy aka Joyrider3774
+description=Collect all the coins, push boxes and blow them up puzzle game
+bundleID=com.joyrider3774.blips.embedded
+version=1.0
+buildNumber=1
