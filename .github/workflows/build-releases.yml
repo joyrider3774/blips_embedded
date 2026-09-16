@@ -111,10 +111,20 @@ jobs:
       - name: Install devkitARM and libgba for the Game Boy Advance
         run: |
           set -e
-          curl -sL -A "Mozilla/5.0 (X11; Linux x86_64)" \
-            -o /tmp/install-devkitpro-pacman https://apt.devkitpro.org/install-devkitpro-pacman
-          chmod +x /tmp/install-devkitpro-pacman
-          sudo /tmp/install-devkitpro-pacman
+          # This is what devkitPro's install-devkitpro-pacman script does, done here instead of
+          # downloading it: that URL sits behind Cloudflare, which answers some runners with a
+          # challenge page, and running that page as a shell script fails with
+          # "Syntax error: newline unexpected". The gpg key wants devkitPro's own user agent
+          sudo apt-get install -y apt-transport-https
+          sudo mkdir -p /usr/share/keyring
+          sudo wget -U "dkp apt" -O /usr/share/keyring/devkitpro-pub.gpg https://apt.devkitpro.org/devkitpro-pub.gpg
+          # a challenge page instead of the key would only fail later and unclearly
+          if [ "$(head -c 1 /usr/share/keyring/devkitpro-pub.gpg)" = "<" ]; then
+            echo "devkitPro's gpg key came back as a web page, not a key"; exit 1
+          fi
+          echo "deb [signed-by=/usr/share/keyring/devkitpro-pub.gpg] https://apt.devkitpro.org stable main" | sudo tee /etc/apt/sources.list.d/devkitpro.list
+          sudo apt-get update
+          sudo apt-get install -y devkitpro-pacman
           sudo dkp-pacman -S --noconfirm --needed gba-dev
 
       # ------------------------------------------------------------------ the Arduino boards
