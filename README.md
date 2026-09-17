@@ -81,7 +81,7 @@ The aim of the game is to collect all the dollar coins in a level, you need to c
 | B | Back in options and level selector, ask to quit to the level selector in game, leave free view |
 | L | Ask to restart the level |
 | R | Enter or leave free view |
-| Up + Down | Show or hide the debug info |
+| (A) + Left + Down | Show or hide the debug info |
 
 ## Credits
 Game is a remake of dos bips game made by Bryant Brownell and based on the gp2x version i initially made

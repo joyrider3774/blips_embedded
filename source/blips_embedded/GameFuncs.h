@@ -11,6 +11,8 @@ int16_t ord(char chr);
 char chr(int16_t ascii);
 uint16_t MaxLineLen(const char* Text);
 void tftPrint(int16_t x, int16_t y, const char* str, uint16_t color, uint16_t bg, uint8_t size);
+//whether the sprites of the skin in use cover their whole tile, worked out by LoadGraphics
+extern bool IMGBoxOpaque, IMGWallOpaque, IMGFloorOpaque;
 void printTitleInfo();
 void LoadUnlockData();
 void SaveUnlockData();

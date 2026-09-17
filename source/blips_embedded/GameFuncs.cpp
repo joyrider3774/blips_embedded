@@ -126,8 +126,19 @@ void DrawImage(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image)
 	SCREEN.setAddrWindow(x + c0, y + r0, c1 - c0, r1 - r0);
 	for (int16_t r = r0; r < r1; r++)
 	{
+		const uint8_t* src = image + (r * w + c0) * sizeof(uint16_t);
+#if PLATFORM_DIRECT_FLASH
+		//flash is plain memory here, so an evenly placed row goes to the display where it
+		//lies instead of being copied first. A 16 bit read needs an even address, a core
+		//like the Cortex-M0+ faults on an odd one
+		if (((uintptr_t)src & 1) == 0)
+		{
+			SCREEN.writePixels((const uint16_t*)src, c1 - c0, true);
+			continue;
+		}
+#endif
 		//the visible part of the row in one copy out of flash
-		PLATFORM_READ_BYTES((uint8_t*)line, image + (r * w + c0) * sizeof(uint16_t), (c1 - c0) * sizeof(uint16_t));
+		PLATFORM_READ_BYTES((uint8_t*)line, src, (c1 - c0) * sizeof(uint16_t));
 		//true: the values are plain RGB565, the library puts them in display order
 		SCREEN.writePixels(line, c1 - c0, true);
 	}
@@ -158,13 +169,23 @@ void DrawImageTransparent(int16_t x, int16_t y, int16_t w, int16_t h, const uint
 		int16_t sy = y + r;
 		if ((sy < 0) || (sy >= WINDOW_HEIGHT))
 			continue;
+		const uint16_t* srow = &src[r * w];
+#if PLATFORM_DIRECT_FLASH
+		//flash is plain memory here: an evenly placed row is read where it lies, a 16 bit
+		//read of an odd address faults on a core like the Cortex-M0+
+		const bool direct = (((uintptr_t)srow & 1) == 0);
+#endif
 		int16_t runX = 0, runLen = 0;
 		for (int16_t c = 0; c <= w; c++)
 		{
 			int16_t sx = x + c;
 			uint16_t color = 0xF81F;
 			if ((c < w) && (sx >= 0) && (sx < WINDOW_WIDTH))
-				color = PLATFORM_READ_WORD(&src[r * w + c]);
+#if PLATFORM_DIRECT_FLASH
+				color = direct ? srow[c] : PLATFORM_READ_WORD(&srow[c]);
+#else
+				color = PLATFORM_READ_WORD(&srow[c]);
+#endif
 			//magenta is the transparent key, it (and the end of the row) closes a run
 			if (color != 0xF81F)
 			{
@@ -321,6 +342,29 @@ void pushImageRLE(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* dat
 #endif
 }
 
+//Without a screen buffer the strips leave out what an opaque sprite paints over anyway, and
+//a sprite is only opaque when no pixel of it carries the transparent key. That is a property
+//of the skin, so it is worked out here rather than assumed: a skin with, say, a wall that
+//has see through parts simply does not get the shortcut
+bool IMGBoxOpaque = false, IMGWallOpaque = false, IMGFloorOpaque = false;
+
+static bool ImageOpaque(const uint8_t* image, size_t bytes)
+{
+	if (!image)
+		return false;
+	for (size_t i = 0; i < bytes; i += sizeof(uint16_t))
+		//magenta is the transparent key, 0xF81F in RGB565
+		if ((PLATFORM_READ_BYTE(image + i) | (PLATFORM_READ_BYTE(image + i + 1) << 8)) == 0xF81F)
+			return false;
+	return true;
+}
+
+//the three the strips can leave the background out for, of the skin being loaded
+#define SKINOPAQUE(box, wall, floor) \
+	IMGBoxOpaque = ImageOpaque((box), sizeof(box)); \
+	IMGWallOpaque = ImageOpaque((wall), sizeof(wall)); \
+	IMGFloorOpaque = ImageOpaque((floor), sizeof(floor))
+
 void LoadGraphics(void)
 {
 	switch (CurrentSkin())
@@ -341,7 +385,8 @@ void LoadGraphics(void)
 			IMGPlayer2 = default_player2_data;
 			IMGTitleScreen = default_titlescreen_rle;
 			IMGWall = default_wall_data;
-			
+			SKINOPAQUE(default_box_data, default_wall_data, default_floor_data);
+
 			ColorWhite = SCREEN.color565(132,155,189);
 			ColorBlack = SCREEN.color565(33,75,123);
 			break;
@@ -362,6 +407,7 @@ void LoadGraphics(void)
 			IMGPlayer2 = black_white_player2_data;
 			IMGTitleScreen = black_white_titlescreen_rle;
 			IMGWall = black_white_wall_data;
+			SKINOPAQUE(black_white_box_data, black_white_wall_data, black_white_floor_data);
 			ColorBlack = SCREEN.color565(0,0,0);
 			ColorWhite = SCREEN.color565(255,255,255);			
 			break;
