@@ -12,6 +12,11 @@
 static void FloodCreate();
 static void FloodDestroy();
 #endif
+#if SCREENBUFFER == 0
+//the same for the strip the board is composed in, defined with the drawing below
+static void BandBufCreate();
+static void BandBufDestroy();
+#endif
 
 CWorldParts* CWorldParts_Create()
 {
@@ -30,6 +35,9 @@ CWorldParts* CWorldParts_Create()
 		Result->ViewPort = CViewPort_Create(0, 0, NrOfColsVisible, NrOfRowsVisible, 0, 0, NrOfCols - 1, NrOfRows - 1);
 #if FLOODFILLFLOOR
 		FloodCreate();
+#endif
+#if SCREENBUFFER == 0
+		BandBufCreate();
 #endif
 	}
 	return Result;
@@ -656,7 +664,10 @@ static CellRow cellDirty[CELLSY];
 //TileHeight tall, so it lands in both halves and its pixels are walked for each of them.
 //A full row is one window, one push and every part handled once
 #define BANDHEIGHT (TileHeight)
-static uint16_t bandBuf[WINDOW_WIDTH * BANDHEIGHT]; //the strip being composed
+//allocated with the parts list rather than reserved as a global, so nothing that runs
+//instead of the game pays for it. NULL when it could not be allocated, and the board is
+//then not painted
+static uint16_t* bandBuf = NULL;                    //the strip being composed
 static int16_t bandX0, bandY0, bandW;               //where that strip sits on screen
 static int16_t lastMinScreenX = -30000, lastMinScreenY = -30000;
 
@@ -892,6 +903,25 @@ static void BandFindCovered(int16_t msx, int16_t msy)
 }
 #endif
 
+static void BandBufCreate()
+{
+	if (bandBuf)
+		return;
+	bandBuf = (uint16_t*)malloc(WINDOW_WIDTH * BANDHEIGHT * sizeof(uint16_t));
+	if (!bandBuf)
+		Platform_Log("BandBufCreate: out of heap, %" PRIu32 " free\n", Platform_FreeHeap());
+}
+
+static void BandBufDestroy()
+{
+	free(bandBuf);
+	bandBuf = NULL;
+	//the next board has to paint everything again
+	bgIndexed = NULL;
+	lastMinScreenX = -30000;
+	lastMinScreenY = -30000;
+}
+
 //the background is a full screen image so it lines up with the band
 static void BandBackground()
 {
@@ -1031,6 +1061,9 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 {
 	uint16_t Teller;
 	bool painted = false;
+	//the strip it is composed in could not be allocated
+	if (!bandBuf)
+		return painted;
 	//read once, these are used for every part of every strip
 	const int16_t msx = WorldParts->ViewPort->MinScreenX;
 	const int16_t msy = WorldParts->ViewPort->MinScreenY;
@@ -1193,5 +1226,8 @@ void CWorldParts_Destroy(CWorldParts* WorldParts)
 	}
 #if FLOODFILLFLOOR
 	FloodDestroy();
+#endif
+#if SCREENBUFFER == 0
+	BandBufDestroy();
 #endif
 }
