@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds the PSP version from WSL (or any Linux): pspdev has no Windows toolchain, so the build runs
-# there and writes into build/ next to this script, which Windows sees as psp\build.
+# there and writes into build/ next to this script, which Windows sees as platforms\psp\build.
 #
 #   wsl bash build.sh            a normal build
 #   wsl bash build.sh clean      throws the build folder away first
