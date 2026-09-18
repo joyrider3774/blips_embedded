@@ -51,14 +51,11 @@ The game's buttons on every device:
 | Nintendo DS | d-pad | A | B | L | R |
 | Nintendo 3DS | d-pad or circle pad | A | B | L | R |
 | Nintendo 64 | d-pad | A | B | L | R |
-
 | PlayStation | d-pad | Cross | Circle | L1 | R1 |
 | PlayStation Portable | d-pad or the analog stick | Cross | Circle | L | R |
 | PlayStation Vita | d-pad or the left stick | Cross | Circle | L | R |
 | Windows | arrow keys | X | C | S | D |
-
 | MS-DOS | arrow keys | X | C | S | D |
-
 | Browser | arrow keys | X | C | S | D |
 
 On the Explorer BOOT is held as a shift, the direction pressed with it is not sent.
