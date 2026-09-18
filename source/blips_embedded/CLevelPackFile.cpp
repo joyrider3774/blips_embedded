@@ -210,9 +210,14 @@ bool CLevelPackFile_parseText(CLevelPackFile *LPackFile, const unsigned char* te
 				CLevelPackFile_storeLevelField(levelMeta, levelField, levelFieldValue);
 			memset(levelFieldValue, 0, MAXLEVELFIELDDATALEN);
 			memset(levelField, 0, MAXLEVELFIELDLEN);
-			//the name can be up to a whole line long, a name that does not fit is cut
-			//short (it can not be one of the known fields then) instead of overflowing
-			snprintf(levelField, sizeof(levelField), "%.*s", (uint8_t)(pdoublepoint - &line[0]), line);
+			//The name can be up to a whole line long, a name that does not fit is cut short
+			//(it can not be one of the known fields then) instead of overflowing. Copied
+			//rather than formatted with a precision, which not every printf understands
+			size_t nameLen = (size_t)(pdoublepoint - &line[0]);
+			if (nameLen > sizeof(levelField) - 1)
+				nameLen = sizeof(levelField) - 1;
+			memcpy(levelField, line, nameLen);
+			levelField[nameLen] = '\0';
 			snprintf(levelFieldValue, sizeof(levelFieldValue), "%s", pdoublepoint + 1);
 			continue;
 		}

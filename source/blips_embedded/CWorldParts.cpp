@@ -697,10 +697,23 @@ static inline uint16_t ReadPixel(const uint8_t* p)
 static inline void BandCopy(uint16_t* dst, const uint8_t* src, int16_t count)
 {
 #if PLATFORM_DIRECT_FLASH
-	//A 16 bit read needs an even address: a core like the Cortex-M0+ faults on an odd one.
-	//The pixels of an encoded row sit wherever the control bytes leave them, so half of the
-	//time they are odd and the two bytes are put together by hand
-	if (((uintptr_t)src & 1) == 0)
+	//Four bytes at a time where both sides sit on an address that allows it: a 32 bit machine
+	//then moves two pixels per load and per store. A 16 bit read needs an even address (a core
+	//like the Cortex-M0+ faults on an odd one) and the pixels of an encoded row sit wherever the
+	//control bytes leave them, so the other two ways are there for the rows that are not placed
+	//as well
+	if ((((uintptr_t)src | (uintptr_t)dst) & 3) == 0)
+	{
+		const uint32_t* s = (const uint32_t*)src;
+		uint32_t* d = (uint32_t*)dst;
+		const int16_t pairs = count >> 1;
+		for (int16_t i = 0; i < pairs; i++)
+			d[i] = s[i];
+		//an odd last pixel of the run
+		if (count & 1)
+			dst[count - 1] = ((const uint16_t*)src)[count - 1];
+	}
+	else if (((uintptr_t)src & 1) == 0)
 	{
 		const uint16_t* s = (const uint16_t*)src;
 		for (int16_t i = 0; i < count; i++)
@@ -720,11 +733,40 @@ static inline void BandCopy(uint16_t* dst, const uint8_t* src, int16_t count)
 static inline void BandCopyKeyed(uint16_t* dst, const uint8_t* src, int16_t count)
 {
 #if PLATFORM_DIRECT_FLASH
+	//two pixels at a time where the addresses allow it: a pair that holds no transparent pixel
+	//is one load and one store, which is most of a sprite
+	if ((((uintptr_t)src | (uintptr_t)dst) & 3) == 0)
+	{
+		const uint32_t* s = (const uint32_t*)src;
+		uint32_t* d = (uint32_t*)dst;
+		const int16_t pairs = count >> 1;
+		for (int16_t i = 0; i < pairs; i++)
+		{
+			const uint32_t two = s[i];
+			//magenta is the transparent key, 0xF81F in RGB565
+			const uint16_t low = (uint16_t)two, high = (uint16_t)(two >> 16);
+			if ((low != 0xF81F) && (high != 0xF81F))
+				d[i] = two;
+			else
+			{
+				if (low != 0xF81F)
+					dst[i * 2] = low;
+				if (high != 0xF81F)
+					dst[i * 2 + 1] = high;
+			}
+		}
+		if (count & 1)
+		{
+			const uint16_t last = ((const uint16_t*)src)[count - 1];
+			if (last != 0xF81F)
+				dst[count - 1] = last;
+		}
+		return;
+	}
 	if (((uintptr_t)src & 1) == 0)
 	{
 		const uint16_t* s = (const uint16_t*)src;
 		for (int16_t i = 0; i < count; i++)
-			//magenta is the transparent key, 0xF81F in RGB565
 			if (s[i] != 0xF81F)
 				dst[i] = s[i];
 		return;

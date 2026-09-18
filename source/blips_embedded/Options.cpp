@@ -34,8 +34,20 @@ void Options()
 		GFX.drawRect(12, 40, 100, 48, ColorBlack);
 		snprintf(Tekst, sizeof(Tekst),"Sound: %s\nSkin: %d\nMain Menu", isSoundOn() ? "On" : "Off", CurrentSkin()+1);
 		tftPrint(28, 42, Tekst, ColorBlack, ColorBlack, 1);
-		//">>" one line lower for every entry above the selected one
-		snprintf(Tekst, sizeof(Tekst), "%s%.*s>>", (Selection > 1) ? " \n" : "", (Selection > 2) ? Selection - 2 : 0, "\n\n\n\n\n\n\n\n");
+		//The ">>" marker one line lower for every entry above the selected one. It is put
+		//together here rather than with a "%.*s" precision in the format: not every device's
+		//printf understands one, and on the PlayStation it printed "(null)" instead
+		uint16_t at = 0;
+		if (Selection > 1)
+		{
+			Tekst[at++] = ' ';
+			Tekst[at++] = '\n';
+		}
+		for (uint8_t above = 2; above < Selection; above++)
+			Tekst[at++] = '\n';
+		Tekst[at++] = '>';
+		Tekst[at++] = '>';
+		Tekst[at] = '\0';
 		tftPrint(14, 42, Tekst, ColorBlack, ColorBlack, 1);
 	}
 		

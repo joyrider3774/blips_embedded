@@ -19,11 +19,14 @@ Every [release](https://github.com/joyrider3774/blips_embedded/releases) has a b
 | [Playdate](https://play.date/) | Playdate_Blips.pdx.zip | unzip it and sideload Blips.pdx, the same pdx runs in the Playdate simulator |
 | [Libretro / RetroArch](https://www.retroarch.com/) | Libretro_Blips.zip | copy blips_libretro.dll into RetroArch's cores folder and blips_libretro.info into its info folder, then Load Core and Start Core |
 | [Game Boy Advance](https://en.wikipedia.org/wiki/Game_Boy_Advance) | GBA_Blips.gba | put it on a flash cart or open it in an emulator, the progress is saved in the cartridge's SRAM |
+| [Nintendo DS](https://en.wikipedia.org/wiki/Nintendo_DS) | NDS_Blips.nds | put it on a flash card or open it in an emulator, the progress is saved next to it in Blips.sav |
+| [Nintendo 3DS](https://en.wikipedia.org/wiki/Nintendo_3DS) | 3DS_Blips.3dsx | copy it into /3ds/ on the SD card and start it from the Homebrew Launcher, or open it in an emulator, the progress is saved in sdmc:/3ds/Blips/ |
+| [PlayStation](https://en.wikipedia.org/wiki/PlayStation_(console)) | PSX_Blips.exe | open it in an emulator or send it to a console that runs unsigned code, the progress is not saved yet |
 | [PlayStation Portable](https://en.wikipedia.org/wiki/PlayStation_Portable) | PSP_Blips.PBP | rename it to EBOOT.PBP and put it in ms0:/PSP/GAME/Blips/ on the memory stick, or open it in PPSSPP |
 | [PlayStation Vita](https://en.wikipedia.org/wiki/PlayStation_Vita) | Vita_Blips.vpk | install it with VitaShell on a Vita with homebrew enabled, or open it in Vita3K |
 | Windows | Windows_Blips.exe | runs on its own, the progress is saved next to it in Blips.sav |
 
-`python tools/build_releases.py` builds all of them, `python tools/convert_skins.py` turns the images in `assets/skins` and `assets/skins2` into the headers the game includes and `python tools/convert_levelpacks.py` does the same for the level packs in `assets/levelpacks`. The Playdate build also needs the Playdate SDK, see `playdate/CMakeLists.txt`, the libretro core libretro-common, see `libretro/CMakeLists.txt`, the Game Boy Advance build devkitARM and libgba, see `gba/CMakeLists.txt`, the PSP build the pspdev toolchain, see `psp/CMakeLists.txt` (pspdev has no Windows build, so on Windows it is built from WSL), and the Vita build VitaSDK, see `vita/CMakeLists.txt`.
+`python tools/build_releases.py` builds all of them, `python tools/convert_skins.py` turns the images in `assets/skins` and `assets/skins2` into the headers the game includes and `python tools/convert_levelpacks.py` does the same for the level packs in `assets/levelpacks`. The Playdate build also needs the Playdate SDK, see `playdate/CMakeLists.txt`, the libretro core libretro-common, see `libretro/CMakeLists.txt`, the Game Boy Advance build devkitARM and libgba, see `gba/CMakeLists.txt`, the Nintendo DS build devkitARM, libnds and calico, see `nds/CMakeLists.txt`, the Nintendo 3DS build devkitARM and libctru, see `3ds/CMakeLists.txt`, the PlayStation build PSn00bSDK, see `psx/CMakeLists.txt`, the PSP build the pspdev toolchain, see `psp/CMakeLists.txt` (pspdev has no Windows build, so on Windows it is built from WSL), and the Vita build VitaSDK, see `vita/CMakeLists.txt`.
 
 ### Buttons
 The game's buttons on every device:
@@ -41,6 +44,9 @@ The game's buttons on every device:
 | Playdate | d-pad | A | B | menu: restart | menu: free view |
 | Libretro | d-pad | A | B | L | R |
 | Game Boy Advance | d-pad | A | B | L | R |
+| Nintendo DS | d-pad | A | B | L | R |
+| Nintendo 3DS | d-pad or circle pad | A | B | L | R |
+| PlayStation | d-pad | Cross | Circle | L1 | R1 |
 | PlayStation Portable | d-pad or the analog stick | Cross | Circle | L | R |
 | PlayStation Vita | d-pad or the left stick | Cross | Circle | L | R |
 | Windows | arrow keys | X | C | S | D |
@@ -54,6 +60,12 @@ The Thumby Color's display is 128x128, the game's own size, so it is shown 1:1 o
 The Playdate shows the black & white skin, scaled up in the middle of its display. It has no side buttons, L and R are the restart and free view entries of its system menu.
 
 The Game Boy Advance shows the game scaled to 160x160 in the middle of its screen, with black bars at the sides. Blips runs at about 20 frames a second there, the other devices show it at 30. Scrolling around a level that is bigger than the screen is slow there: the game engine draws the whole screen again while the view moves.
+
+On the Nintendo DS the game is scaled to 192x192 in the middle of the top screen, with black bars at the sides, and the bottom screen stays dark. The progress is saved as Blips.sav on the card the game was started from, so a card that libfat can not write to (or an emulator without one) plays the game but forgets it afterwards. Its tones are square waves played as a sample: the DS's own tone channels can not go below about 256 Hz, which is under the notes of the explosion.
+
+On the Nintendo 3DS the game is scaled to 240x240 in the middle of the top screen, with black bars at the sides, and the bottom screen stays dark. What the game saves goes into sdmc:/3ds/Blips/Blips.sav. Its tones play through the console's DSP when the DSP firmware has been dumped to the SD card (sdmc:/3ds/dspfirm.cdc), and through CSND when it has not: on hardware either one plays, in an emulator only the DSP one does.
+
+On the PlayStation the game is drawn into memory, handed to the GPU as a texture and shown scaled to 240x240 in the middle of its 320x240 screen, with black bars at the sides. Its tones are a square wave the SPU plays from a single looping block. The memory card is not written yet, so the progress is gone when the console is switched off.
 
 On the PlayStation Portable the game is doubled to 256x256 in the middle of the display, and the high scores are saved next to the EBOOT.PBP in Blips.sav.
 
