@@ -182,9 +182,9 @@ void DrawImageTransparent(int16_t x, int16_t y, int16_t w, int16_t h, const uint
 			uint16_t color = 0xF81F;
 			if ((c < w) && (sx >= 0) && (sx < WINDOW_WIDTH))
 #if PLATFORM_DIRECT_FLASH
-				color = direct ? srow[c] : PLATFORM_READ_WORD(&srow[c]);
+				color = direct ? srow[c] : PLATFORM_READ_PIXEL(&srow[c]);
 #else
-				color = PLATFORM_READ_WORD(&srow[c]);
+				color = PLATFORM_READ_PIXEL(&srow[c]);
 #endif
 			//magenta is the transparent key, it (and the end of the row) closes a run
 			if (color != 0xF81F)
