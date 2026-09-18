@@ -60,38 +60,9 @@ The game's buttons on every device:
 
 On the Explorer BOOT is held as a shift, the direction pressed with it is not sent.
 
-On the Tufty 2350 a tap of HOME is B when it is let go, held HOME is a shift like BOOT on the Explorer. It has no speaker, the game is silent there. Holding RESET until the rear LEDs are dark puts it to sleep, a front button wakes it up again, with UP and DOWN held as well it goes into shipping mode instead.
-
-The Thumby Color's display is 128x128, the game's own size, so it is shown 1:1 over the whole screen. That build has not been tried on the device itself yet.
-
-The Playdate shows the black & white skin, scaled up in the middle of its display. It has no side buttons, L and R are the restart and free view entries of its system menu.
-
-The Game Boy Advance shows the game scaled to 160x160 in the middle of its screen, with black bars at the sides. Blips runs at about 20 frames a second there, the other devices show it at 30. Scrolling around a level that is bigger than the screen is slow there: the game engine draws the whole screen again while the view moves.
-
-On the Nintendo DS the game is scaled to 192x192 in the middle of the top screen, with black bars at the sides, and the bottom screen stays dark. The progress is saved as Blips.sav on the card the game was started from, so a card that libfat can not write to (or an emulator without one) plays the game but forgets it afterwards. Its tones are square waves played as a sample: the DS's own tone channels can not go below about 256 Hz, which is under the notes of the explosion.
-
-On the Nintendo 3DS the game is scaled to 240x240 in the middle of the top screen, with black bars at the sides, and the bottom screen stays dark. What the game saves goes into sdmc:/3ds/Blips/Blips.sav. Its tones play through the console's DSP when the DSP firmware has been dumped to the SD card (sdmc:/3ds/dspfirm.cdc), and through CSND when it has not: on hardware either one plays, in an emulator only the DSP one does.
-
-On MS-DOS the game runs in VGA mode X, 320x240 in 256 colours, blown up to 240x240 in the middle of the screen with black bars at the sides. That mode rather than the usual 320x200 one because its pixels are square, where 320x200 is stretched over the same screen and would show the game a fifth too tall. The 256 colours are set to the RGB332 cube, which is exactly what the game's 8 bpp screen buffer holds, so a frame reaches the card without a colour being worked out. Its tones are a square wave on the PC speaker, the progress is saved next to the program in BLIPS.SAV, and Escape quits. The program is 32 bit and carries the CWSDPMI host inside it, so it needs nothing beside it on the disk.
-
-
-
-In a browser the game is drawn into a canvas of its own 128x128 pixels, which the page stretches to whatever room it is given while keeping it square and keeping the pixels sharp. What the game saves goes into the browser's localStorage under the game's name, so a private window plays it but forgets it afterwards. The zip holds index.html, index.js and index.wasm and is what an itch.io HTML project takes as it is.
-
-
-
-On the Nintendo 64 the game is drawn into memory and the RDP puts it on screen scaled to 240x240 in the middle of its 320x240 screen, with black bars at the sides. Its tones are a square wave written into the buffers the sound hardware plays from. The progress is saved in the cartridge EEPROM, which the ROM says it has, so a cartridge or an emulator without one plays the game but forgets it afterwards.
-
-
-
-On the PlayStation the game is drawn into memory, handed to the GPU as a texture and shown scaled to 240x240 in the middle of its 320x240 screen, with black bars at the sides. Its tones are a square wave the SPU plays from a single looping block. The memory card is not written yet, so the progress is gone when the console is switched off.
-
-On the PlayStation Portable the game is doubled to 256x256 in the middle of the display, and the high scores are saved next to the EBOOT.PBP in Blips.sav.
-
-On the PlayStation Vita the game is blown up four times to 512x512 in the middle of the display, and the high scores are saved in ux0:data/Blips/Blips.sav.
+On the Tufty 2350 a tap of HOME is B when it is let go, held HOME is a shift like BOOT on the Explorer.
 
 On the Gamebuino META holding HOME for a second goes back to its loader.
-
 
 ## Devices
 Every [release](https://github.com/joyrider3774/blips_embedded/releases) has a build for every device. `releases/` is where a build of your own puts them, it is not part of the repository:
@@ -118,6 +89,30 @@ Every [release](https://github.com/joyrider3774/blips_embedded/releases) has a b
 | Windows | Windows_Blips.exe | runs on its own, the progress is saved next to it in Blips.sav |
 | MS-DOS | DOS_Blips.zip | unzip BLIPS.EXE onto a DOS machine or into DOSBox and run it, the progress is saved next to it in BLIPS.SAV |
 | Browser | Web_Blips.zip | upload it to an itch.io HTML project, or unzip it and open index.html from a web server, the progress is saved in the browser |
+
+The Tufty 2350 has no speaker, the game is silent there. Holding RESET until the rear LEDs are dark puts it to sleep, a front button wakes it up again, with UP and DOWN held as well it goes into shipping mode instead.
+
+The Thumby Color's display is 128x128, the game's own size, so it is shown 1:1 over the whole screen. That build has not been tried on the device itself yet.
+
+The Playdate shows the black & white skin, scaled up in the middle of its display. It has no side buttons, L and R are the restart and free view entries of its system menu.
+
+The Game Boy Advance shows the game scaled to 160x160 in the middle of its screen, with black bars at the sides. Blips runs at about 20 frames a second there, the other devices show it at 30. Scrolling around a level that is bigger than the screen is slow there: the game engine draws the whole screen again while the view moves.
+
+On the Nintendo DS the game is scaled to 192x192 in the middle of the top screen, with black bars at the sides, and the bottom screen stays dark. The progress is saved as Blips.sav on the card the game was started from, so a card that libfat can not write to (or an emulator without one) plays the game but forgets it afterwards. Its tones are square waves played as a sample: the DS's own tone channels can not go below about 256 Hz, which is under the notes of the explosion.
+
+On the Nintendo 3DS the game is scaled to 240x240 in the middle of the top screen, with black bars at the sides, and the bottom screen stays dark. What the game saves goes into sdmc:/3ds/Blips/Blips.sav. Its tones play through the console's DSP when the DSP firmware has been dumped to the SD card (sdmc:/3ds/dspfirm.cdc), and through CSND when it has not: on hardware either one plays, in an emulator only the DSP one does.
+
+On MS-DOS the game runs in VGA mode X, 320x240 in 256 colours, blown up to 240x240 in the middle of the screen with black bars at the sides. That mode rather than the usual 320x200 one because its pixels are square, where 320x200 is stretched over the same screen and would show the game a fifth too tall. The 256 colours are set to the RGB332 cube, which is exactly what the game's 8 bpp screen buffer holds, so a frame reaches the card without a colour being worked out. Its tones are a square wave on the PC speaker, the progress is saved next to the program in BLIPS.SAV, and Escape quits. The program is 32 bit and carries the CWSDPMI host inside it, so it needs nothing beside it on the disk.
+
+In a browser the game is drawn into a canvas of its own 128x128 pixels, which the page stretches to whatever room it is given while keeping it square and keeping the pixels sharp. What the game saves goes into the browser's localStorage under the game's name, so a private window plays it but forgets it afterwards. The zip holds index.html, index.js and index.wasm and is what an itch.io HTML project takes as it is.
+
+On the Nintendo 64 the game is drawn into memory and the RDP puts it on screen scaled to 240x240 in the middle of its 320x240 screen, with black bars at the sides. Its tones are a square wave written into the buffers the sound hardware plays from. The progress is saved in the cartridge EEPROM, which the ROM says it has, so a cartridge or an emulator without one plays the game but forgets it afterwards.
+
+On the PlayStation the game is drawn into memory, handed to the GPU as a texture and shown scaled to 240x240 in the middle of its 320x240 screen, with black bars at the sides. Its tones are a square wave the SPU plays from a single looping block. The memory card is not written yet, so the progress is gone when the console is switched off.
+
+On the PlayStation Portable the game is doubled to 256x256 in the middle of the display, and the high scores are saved next to the EBOOT.PBP in Blips.sav.
+
+On the PlayStation Vita the game is blown up four times to 512x512 in the middle of the display, and the high scores are saved in ux0:data/Blips/Blips.sav.
 
 `python tools/build_releases.py` builds all of them  
 `python tools/convert_skins.py` turns the images in `assets/skins` and `assets/skins2` into the headers the game includes  
