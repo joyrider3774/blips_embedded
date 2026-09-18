@@ -3,6 +3,13 @@
 
 Blips is a remake of the dos bips game made by Bryant Brownell, its a sokoban style puzzle game but with exploding dynamite and collecting coins
 
+## Screenshots
+The browser build, at twice the game's own 128x128:
+
+| Title screen | In game |
+| --- | --- |
+| ![Blips title screen](metadata/screenshots/title.png) | ![Blips in game](metadata/screenshots/ingame.png) |
+
 ## Devices
 Every [release](https://github.com/joyrider3774/blips_embedded/releases) has a build for every device. `releases/` is where a build of your own puts them, it is not part of the repository:
 
