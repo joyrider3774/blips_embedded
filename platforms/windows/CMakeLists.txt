@@ -1,5 +1,5 @@
 # Windows build of Blips: the game's own sources with the PLATFORM_SDL platform
-# (Source/blips_embedded/PlatformSDL.*), LovyanGFX's SDL panel for the window and SDL2.
+# (source/blips_embedded/PlatformSDL.*), LovyanGFX's SDL panel for the window and SDL2.
 #
 # With MSYS2 (mingw64 packages cmake, ninja or make, gcc and SDL2), from this folder:
 #   cmake -S . -B build-windows -G Ninja            (add -DSCREENBUFFER=1 / -DIMAGESET=1 to change)
@@ -71,7 +71,7 @@ if(NOT FORCEDEBUG MATCHES "^(0|1)$")
     message(FATAL_ERROR "FORCEDEBUG has to be 0 or 1, not ${FORCEDEBUG}")
 endif()
 
-set(GAME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source/blips_embedded")
+set(GAME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../source/blips_embedded")
 
 # the game's files, not the ESPboy platform or its library (lib/ is not globbed)
 file(GLOB GAME_SOURCES CONFIGURE_DEPENDS "${GAME_DIR}/*.cpp")
