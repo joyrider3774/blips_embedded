@@ -114,7 +114,8 @@ On the PlayStation Portable the game is doubled to 256x256 in the middle of the 
 
 On the PlayStation Vita the game is blown up four times to 512x512 in the middle of the display, and the high scores are saved in ux0:data/Blips/Blips.sav.
 
-`python tools/build_releases.py` builds all of them  
+## Building
+`python tools/build_releases.py` builds a release for every device  
 `python tools/convert_skins.py` turns the images in `assets/skins` and `assets/skins2` into the headers the game includes  
 `python tools/convert_levelpacks.py` does the same for the level packs in `assets/levelpacks`  
 The Playdate build also needs the Playdate SDK, see `platforms/playdate/CMakeLists.txt`  
