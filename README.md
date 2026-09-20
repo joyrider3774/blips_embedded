@@ -70,7 +70,7 @@ Every [release](https://github.com/joyrider3774/blips_embedded/releases) has a b
 | Device | File | How to install |
 | ------ | ---- | -------------- |
 | [ESPboy](https://www.espboy.com/) | ESPboy_Blips.bin | flash it, the board is a LOLIN(WEMOS) D1 mini |
-| [Gamebuino META](https://gamebuino.com/gamebuino-meta) | GamebuinoMeta_Blips.bin | copy it into a folder on the SD card, the .hex is for flashing it directly |
+| [Gamebuino META](https://gamebuino.com/gamebuino-meta) | GamebuinoMeta_Blips.zip | unzip it onto the SD card, it holds a Blips_embedded folder with the game, its save and the loader's images, the .hex in it is for flashing the game directly |
 | [Adafruit PyBadge](https://www.adafruit.com/product/4200) | PyBadge_Blips.uf2 | double press reset and copy it onto the drive that appears |
 | [Adafruit PyGamer](https://www.adafruit.com/product/4242) | PyGamer_Blips.uf2 | same as the PyBadge |
 | [Pimoroni PicoSystem](https://shop.pimoroni.com/products/picosystem) | PicoSystem_Blips.uf2 | hold X while switching on and copy it onto the drive that appears |
