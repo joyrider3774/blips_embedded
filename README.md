@@ -154,7 +154,10 @@ Every device is built with its own settings. These change them for all of the de
 | Option | What it sets | Values |
 | ------ | ------------ | ------ |
 | `--forceskin N` | `FORCESKIN`, the skin built in | `-1`, or `0` to `1` |
-| `--forcescreenbuffer N` | `SCREENBUFFER`, where drawing goes | `0`, `1`, `8` or `16` bits per pixel |
+| `--forcescreenbuffer N` | `SCREENBUFFER`, where drawing goes | `0`, `1`, `8` or `16` bits per pixel |
+| `--forcescale N` | `SCALESCREEN`, how the game fills the display | `1` blown up, `0` 1:1 in the middle |
+| `--forcewindowscale N` | `WINDOW_SCALE`, how big the Windows window opens | `1` to `8` times the game's size |
+| `--forcedithering N` | `DITHERING`, whether an 8 or 1 bpp buffer spreads its colours | `1` spread, `0` the nearest colour |
 | `--forcedebug` | `FORCEDEBUG 1`, the debug header is always shown | no value, on when it is given |
 
 `-1` builds every skin in and lets the game's own options pick one. A number builds only that skin in, which is what a device short of room needs.

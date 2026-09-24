@@ -88,7 +88,7 @@ void DrawImageToBuffer(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t
 		{
 			uint16_t color = row[c];
 			if (!transparent || (color != 0xF81F))
-				d[c] = (uint8_t)(((color & 0xE000) >> 8) | ((color & 0x0700) >> 6) | ((color & 0x0018) >> 3));
+				d[c] = ToBuffer332(color, (int16_t)(sx + c), (int16_t)sy);
 		}
   #else
 		for (int16_t c = 0; c < cols; c++)
@@ -254,8 +254,12 @@ void pushImageRLE(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* dat
 		//a 16 bpp sprite keeps its pixels byte swapped
 		const uint16_t value = (uint16_t)((color >> 8) | (color << 8));
   #elif SCREENBUFFER == 8
-		//RGB332, the same conversion both libraries apply to everything else
-		const uint8_t value = (uint8_t)(((color & 0xE000) >> 8) | ((color & 0x0700) >> 6) | ((color & 0x0018) >> 3));
+    #if !DITHERING
+		//RGB332, the same conversion both libraries apply to everything else. With DITHERING
+		//the byte depends on where the pixel lands, so a run is worked out pixel by pixel
+		//instead and there is nothing to keep here
+		const uint8_t value = ToBuffer332(color, 0, 0);
+    #endif
   #endif
 		for (uint16_t done = 0; done < count; )
 		{
@@ -280,11 +284,18 @@ void pushImageRLE(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* dat
 						d[sx + c] = (uint16_t)((src[c] >> 8) | (src[c] << 8));
   #elif SCREENBUFFER == 8
 				uint8_t* d = &((uint8_t*)dst)[sy * WINDOW_WIDTH];
+    #if DITHERING
+				//every pixel of a run falls in its own place in the pattern, so a run can not be
+				//spread with one memset the way it is without dithering
+				for (int16_t c = c0; c < c1; c++)
+					d[sx + c] = ToBuffer332(run ? color : src[c], (int16_t)(sx + c), (int16_t)sy);
+    #else
 				if (run)
 					memset(&d[sx + c0], value, c1 - c0);
 				else
 					for (int16_t c = c0; c < c1; c++)
-						d[sx + c] = (uint8_t)(((src[c] & 0xE000) >> 8) | ((src[c] & 0x0700) >> 6) | ((src[c] & 0x0018) >> 3));
+						d[sx + c] = ToBuffer332(src[c], (int16_t)(sx + c), (int16_t)sy);
+    #endif
   #else
 				for (int16_t c = c0; c < c1; c++)
 					SetBufferBit((uint8_t*)dst, sx + c, sy, run ? color : src[c]);
