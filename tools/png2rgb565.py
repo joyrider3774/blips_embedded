@@ -14,6 +14,11 @@ from PIL import Image
 
 SKIN_PREFIX = {"default": "default", "black_white": "black_white"}
 
+#The pictures png2rle565.py stores run length encoded. Those are not kept raw as well, so
+#they are the ones to pass over here. This used to look for "-table-" in the name, which
+#no picture of this game has, so nothing was written at all
+RLE_IMAGES = {"background", "instructions", "intro1", "intro2", "titlescreen"}
+
 def to_rgb565(path):
     img = Image.open(path).convert("RGB")
     rgb = img.tobytes()
@@ -49,7 +54,7 @@ def main():
     for skin, prefix in SKIN_PREFIX.items():
         os.makedirs(os.path.join(images_dir, skin), exist_ok=True)
         for png in sorted(os.listdir(os.path.join(skins_dir, skin))):
-            if not png.endswith(".png") or "-table-" not in png:
+            if not png.endswith(".png") or png[:-4] in RLE_IMAGES:
                 continue
             name = png[:-4].replace("-", "_")
             width, height, pixels = to_rgb565(os.path.join(skins_dir, skin, png))

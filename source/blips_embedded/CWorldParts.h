@@ -5,6 +5,8 @@
 #include "Defines.h"
 #include "CViewPort.h"
 #include "CLevelPackFile.h"
+//for PLATFORM_FAST_CODE, this paints the board a pixel at a time
+#include "Platform.h"
 
 typedef struct CWorldPart CWorldPart;
 typedef struct CWorldParts CWorldParts;
@@ -42,7 +44,7 @@ void CWorldParts_LimitVPLevel(CWorldParts* WorldParts);
 void CWorldParts_Move(CWorldParts* WorldParts);
 void CWorldParts_Draw(CWorldParts* WorldParts);
 //repaint only the screen cells whose contents changed
-bool CWorldParts_DrawBoard(CWorldParts* WorldParts);
+PLATFORM_FAST_CODE bool CWorldParts_DrawBoard(CWorldParts* WorldParts);
 void CWorldParts_MarkDirty(int16_t x, int16_t y, int16_t w, int16_t h);
 void CWorldParts_MarkAllDirty();
 void CWorldParts_Remove(CWorldParts* WorldParts, int8_t PlayFieldXin,int8_t PlayFieldYin);

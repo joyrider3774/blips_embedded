@@ -34,6 +34,14 @@ if(NOT SCREENBUFFER MATCHES "^(1|8|16)$")
     message(FATAL_ERROR "SCREENBUFFER has to be 1, 8 or 16, not ${SCREENBUFFER}")
 endif()
 
+# 1 = the colours of an image are spread over the ones the buffer can hold instead of every colour
+# becoming the nearest one there is, 0 = they are not. An 8 bpp and a 1 bpp buffer have something
+# to gain from it, see DITHERING in defines.h
+set(DITHERING 0 CACHE STRING "DITHERING setting: 0 or 1")
+if(NOT DITHERING MATCHES "^(0|1)$")
+    message(FATAL_ERROR "DITHERING has to be 0 or 1, not ${DITHERING}")
+endif()
+
 # the image set, 1 (16x16 tiles) or 2 (8x8 tiles), see IMAGESET in defines.h
 set(IMAGESET 2 CACHE STRING "IMAGESET setting: 1 or 2")
 
@@ -68,11 +76,3 @@ endif()
 # the core's info file next to the core
 add_custom_command(TARGET blips_libretro POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/blips_libretro.info" "$<TARGET_FILE_DIR:blips_libretro>/blips_libretro.info")
-# 1 = the colours of an image are spread over the ones the buffer can hold instead of every colour
-# becoming the nearest one there is, 0 = they are not. An 8 bpp and a 1 bpp buffer have something
-# to gain from it, see DITHERING in defines.h
-set(DITHERING 0 CACHE STRING "DITHERING setting: 0 or 1")
-if(NOT DITHERING MATCHES "^(0|1)$")
-    message(FATAL_ERROR "DITHERING has to be 0 or 1, not ${DITHERING}")
-endif()
-

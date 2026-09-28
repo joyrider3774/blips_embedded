@@ -97,6 +97,8 @@ def main():
     skins_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(here, "..", "assets", "skins")
     images_dir = sys.argv[2] if len(sys.argv) > 2 else os.path.join(here, "..", "source", "blips_embedded", "images")
     for skin, prefix in SKIN_PREFIX.items():
+        #the folder is made here, the converter is run into a fresh one as often as not
+        os.makedirs(os.path.join(images_dir, skin), exist_ok=True)
         for name in FULLSCREEN_IMAGES:
             width, height, pixels = to_rgb565(os.path.join(skins_dir, skin, name + ".png"))
             data = rle_encode(pixels)
