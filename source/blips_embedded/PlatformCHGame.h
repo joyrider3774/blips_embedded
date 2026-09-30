@@ -40,11 +40,47 @@
 #endif
 
 //Only one skin fits in the flash next to the game: -1 = every skin, n = only skin n, see
-//FORCESKIN in defines.h. A 1 bpp buffer picks the black & white skin itself. A build can
-//still set it itself
+//FORCESKIN in defines.h. The black & white skin is the one that is taken: its pictures are
+//packed one bit a pixel rather than kept as RGB565, which is what makes the game fit at all.
+//A 1 bpp buffer picks that skin itself, and a build can still ask for another one
 #if !defined(FORCESKIN) && (SCREENBUFFER != 1)
-#define FORCESKIN 0
+#define FORCESKIN SKINBLACKWHITE
 #endif
+
+//The device has room for one level pack beside the game, so a build made here rather than by
+//tools/build_releases.py takes the first of them. The release tool builds a binary for each,
+//see its TARGETS, and hands the pack over as a number
+#ifndef LEVELPACKS
+#define LEVELPACKS LP_bips_1
+#endif
+
+//The pool of world parts is the largest thing the game asks the heap for, and this device
+//has 20k of ram for everything, so it is sized from the busiest level of the packs the
+//build actually ships rather than from a grid that no level of them fills. 16 slots are
+//kept over for the explosions that appear while what they destroy is still being removed,
+//where other devices keep 48. LEVELPACKMAXPARTS is counted by tools/convert_levelpacks.py
+#ifndef MAXWORLDPARTS
+#define MAXWORLDPARTS (LEVELPACKMAXPARTS + 16)
+#endif
+
+//The floor the floodfill finds is not drawn on this device. It was about 40% of the sprite rows of
+//a scrolling frame, and the floodfill itself ran every frame whether anything moved or not, which
+//was more than half the cost of a still one. Leaving it out also hands back the floodfill's
+//bitmaps and its tile stack, which this device wants for the level. A build can still ask for it
+#ifndef FLOODFILLFLOOR
+#define FLOODFILLFLOOR 0
+#endif
+
+//The pixel loops are put in ram rather than run from flash. The core fetches from flash with wait
+//states and does not guess at branches, so a short loop with a test in it runs several times slower
+//there: the byte swap in writePixels costs about 9 cycles a pixel while the loops that compose a
+//strip cost 60 to 110, for work that is not much different. There is no .highcode section in this
+//board's linker script, but .data is loaded into ram from flash at startup, so a function put there
+//is copied with it and runs from ram. Only the innermost loops are marked, the ram is needed for
+//the level
+//noinline as well, or a static loop called from one place is folded into its caller and lands
+//back in flash with it, the section asking for nothing
+#define PLATFORM_HOT_CODE __attribute__((section(".data.hotcode"), noinline))
 
 //What the game draws with, shared by the display and the screen buffer: rectangles and the
 //text of the GLCD font, with the arguments LovyanGFX takes

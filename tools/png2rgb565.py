@@ -12,7 +12,12 @@ import os
 import sys
 from PIL import Image
 
+import onebit
+
 SKIN_PREFIX = {"default": "default", "black_white": "black_white"}
+#see png2rle565.py: the black & white skin is packed one bit a pixel
+ONE_BIT_SKINS = {"black_white"}
+COLOR_TRANSPARENT = 0xF81F
 
 #The pictures png2rle565.py stores run length encoded. Those are not kept raw as well, so
 #they are the ones to pass over here. This used to look for "-table-" in the name, which
@@ -47,6 +52,28 @@ def write_header(path, source_name, var, width, height, pixels):
         f.write("\n".join(lines) + "\n")
 
 
+#Pictures that are a column of tiles, read by the row a tile starts at, and kept unpacked for it: a
+#packed plane can only be read from the top, so drawing a tile far down one costs a decode of every
+#row above it. none of this game's pictures are read that way, so the tuple is empty.
+#Both planes have to be raw or neither, see pack_plane: passing over a packed mask costs the same
+#walk the pixels would
+SHEET_IMAGES = ()
+
+
+def convert(src, out, var, skin, keep_raw=False):
+    """Writes the header for one picture into out, in the format its skin is stored in.
+
+    Every caller wants that same choice made, so it is made here and not in each of them."""
+    width, height, pixels = to_rgb565(src)
+    if skin in ONE_BIT_SKINS:
+        data = onebit.encode(pixels, width, height, COLOR_TRANSPARENT, keep_raw)
+        onebit.write_header(out, os.path.basename(src), var, var + "_data", width, height, data,
+                            "png2rgb565.py")
+    else:
+        write_header(out, os.path.basename(src), var, width, height, pixels)
+    return width, height
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     skins_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(here, "..", "assets", "skins")
@@ -57,9 +84,9 @@ def main():
             if not png.endswith(".png") or png[:-4] in RLE_IMAGES:
                 continue
             name = png[:-4].replace("-", "_")
-            width, height, pixels = to_rgb565(os.path.join(skins_dir, skin, png))
             out = os.path.join(images_dir, skin, name + "_RGB565_LE.h")
-            write_header(out, png, "%s_%s" % (prefix, name), width, height, pixels)
+            width, height = convert(os.path.join(skins_dir, skin, png), out,
+                                    "%s_%s" % (prefix, name), skin, name in SHEET_IMAGES)
             print("%-8s %-40s %dx%d" % (skin, png, width, height))
 
 

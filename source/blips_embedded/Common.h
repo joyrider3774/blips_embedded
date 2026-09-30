@@ -24,8 +24,7 @@ extern uint8_t InstalledLevelPacksCount, InstalledLevels, UnlockedLevels;
 extern int8_t SelectedLevel, SelectedLevelPack, AskingQuestionID;
 extern bool AskingQuestion;
 extern CWorldParts *WorldParts;
-extern const char* const InstalledLevelPacks[MaxLevelPacks];
-//always points at one of the InstalledLevelPacks entries
+//always points at one of the names CLevelPackFile_BuiltInName gives
 extern const char* LevelPackName;
 extern uint8_t currButtons, prevButtons;
 extern uint8_t Selection;      //menu entry, 0 (none yet) .. 4

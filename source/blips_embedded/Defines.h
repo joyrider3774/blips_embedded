@@ -109,16 +109,67 @@
 //a level can hold at most one part per playfield cell, the spare slots are for the
 //explosions that get added while parts are still being removed
 //A level can hold one part per playfield tile: that is also where the level
-//parser stops accepting them, see MAXITEMCOUNT. Do not size this from the parts
-//the current packs happen to use, a level is allowed to fill the whole grid.
+//parser stops accepting them, see MAXITEMCOUNT, so a pool of a full grid takes any level
+//that could ever be written.
 //The spare slots cover the explosions that get added while the parts they
 //destroy are still waiting to be removed.
+//The device header may ask for fewer, which a device with little ram has to: the pool is
+//the largest thing the game asks the heap for. One that does may size itself from
+//LEVELPACKMAXPARTS, the busiest level of the packs it actually ships, which is checked
+//below where that is known
+#ifndef MAXWORLDPARTS
 #define MAXWORLDPARTS ((NrOfCols * NrOfRows) + 48)
+#endif
 //only the parts that actually moved this frame get redrawn on top, that is the
 //active player plus whatever it is pushing
 #define MAXMOVEABLEWORLDPARTS 8
 
-#define MaxLevelPacks 4
+//>>> written by tools/convert_levelpacks.py from assets/levelpacks, do not edit by hand
+//LEVELPACKS: the level packs that are built in, an LP_ bit each (the size is what the
+//pack takes in flash). All of them unless the device header or the build picks fewer; a
+//pack that is left out takes no flash and is not offered in the game
+#define LP_bips_1              (1ul <<  0)    //bips_1.bip                5937 bytes
+#define LP_bips_2              (1ul <<  1)    //bips_2.bip                6882 bytes
+#define LP_bips_gold           (1ul <<  2)    //bips_gold.bip             4588 bytes
+#define LP_bips_gold_2_players (1ul <<  3)    //bips_gold_2_players.bip   4608 bytes
+#define LP_bips_platinum_1     (1ul <<  4)    //bips_platinum_1.bip       5921 bytes
+#define LP_bips_platinum_2     (1ul <<  5)    //bips_platinum_2.bip       6400 bytes
+#define LP_ALL ((1ul << 6) - 1)
+#ifndef LEVELPACKS
+#define LEVELPACKS LP_ALL
+#endif
+#if (LEVELPACKS & LP_ALL) == 0
+#error "LEVELPACKS has to leave at least one level pack in"
+#endif
+//how many packs there are in all, which is what the saved unlocks are sized by
+#define MaxLevelPacks 6
+//how many of them this build takes, which is how many the game lists
+#define LEVELPACKCOUNT (((LEVELPACKS & LP_bips_1) != 0) + ((LEVELPACKS & LP_bips_2) != 0) + ((LEVELPACKS & LP_bips_gold) != 0) + ((LEVELPACKS & LP_bips_gold_2_players) != 0) + ((LEVELPACKS & LP_bips_platinum_1) != 0) + ((LEVELPACKS & LP_bips_platinum_2) != 0))
+
+//The busiest level each pack has. The game keeps a pool of world parts and it is the
+//largest thing it asks the heap for, so a build wants no more slots than the packs it
+//holds can fill, see MAXWORLDPARTS in the device header
+#define LP_PARTS_bips_1               346
+#define LP_PARTS_bips_2               342
+#define LP_PARTS_bips_gold            397
+#define LP_PARTS_bips_gold_2_players  336
+#define LP_PARTS_bips_platinum_1      388
+#define LP_PARTS_bips_platinum_2      396
+
+//how many parts the busiest level of the packs this build holds has. A pack that is
+//left out counts for nothing, so the count follows what LEVELPACKS says
+//One comparison a pack. LP_PARTS_MAX is a function and not a macro on purpose: a macro
+//naming its first argument twice doubles the text at every step, which with nineteen
+//packs put the compiler out of memory. constexpr keeps it usable where a constant is
+//wanted, such as the static_assert below and the size of the pool
+static inline constexpr int LP_PARTS_MAX(int a, int b) { return (a > b) ? a : b; }
+#define LP_PARTS_OF(p) (((LEVELPACKS & LP_##p) != 0) ? LP_PARTS_##p : 0)
+#define LEVELPACKMAXPARTS LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(LP_PARTS_MAX(0, LP_PARTS_OF(bips_1)), LP_PARTS_OF(bips_2)), LP_PARTS_OF(bips_gold)), LP_PARTS_OF(bips_gold_2_players)), LP_PARTS_OF(bips_platinum_1)), LP_PARTS_OF(bips_platinum_2))
+//<<<
+
+//The pool has to take the busiest level of the packs this build ships. A build that takes
+//every level of every pack wants a full grid, which is what MAXWORLDPARTS is by default
+static_assert(MAXWORLDPARTS >= LEVELPACKMAXPARTS, "a level of a pack in this build would not fit the pool");
 
 #define MaxLevelPackNameLength 25
 
@@ -162,4 +213,17 @@
 #endif
 //1 when the images of skin n are part of the build
 #define SKINBUILT(n) ((FORCESKIN < 0) || (FORCESKIN == (n)))
+
+//1 when the black & white skin is in the build, whose pictures are packed one bit a pixel
+//by tools/onebit.py and drawn by the routines in onebitimage.cpp rather than as RGB565. It
+//shows two colours, and keeping each of them in sixteen bits costs both flash and the work
+//of writing a colour per pixel. Every skin can be in the build here and picked in the
+//options, so which kind a picture is cannot be known at build time: skinImagesOneBit says
+#define ONEBITIMAGES SKINBUILT(SKINBLACKWHITE)
+
+//1 when the black & white skin is the only one in the build. Every picture is then one bit a pixel
+//and the paths that read RGB565 are dead: a build that is only ever going to draw one bit pictures
+//need not carry the index the run length encoded background is read through, which is a row table
+//the width of the screen
+#define ONEBITONLY (ONEBITIMAGES && (FORCESKIN == SKINBLACKWHITE))
 #endif

@@ -20,6 +20,21 @@ static CWorldPart* WorldPartPool = NULL;
 static_assert(MAXWORLDPARTS * 2 <= 65535, "pool indexes do not fit in uint16_t");
 static uint16_t WorldPartPoolNext = 0;
 
+//asks for the pool before anything else wants the memory, see CWorldParts_Create
+void CWorldPart_PoolCreate()
+{
+	if (!WorldPartPool)
+	{
+		WorldPartPool = (CWorldPart*)calloc(MAXWORLDPARTS, sizeof(CWorldPart));
+		if (!WorldPartPool)
+		{
+			Platform_Log("CWorldPart_PoolCreate: out of heap, %" PRIu32 " free\n", Platform_FreeHeap());
+			return;
+		}
+		WorldPartPoolNext = 0;
+	}
+}
+
 static CWorldPart* CWorldPart_PoolAlloc()
 {
 	if (!WorldPartPool)
@@ -1009,7 +1024,21 @@ const uint8_t* CWorldPart_SpriteData(CWorldPart* WorldPart)
 		case IDExplosion:      base = IMGExplosion;   break;
 		default: return NULL;
 	}
+#if ONEBITIMAGES
+	//A one bit picture is packed and its rows are encoded, so a frame of a sheet cannot be
+	//reached by stepping the pointer. The sheet is given whole and the frame asked for on its
+	//own, see CWorldPart_SpriteFrame
+	if (skinImagesOneBit)
+		return base;
+#endif
 	return base + WorldPart->AnimPhase * TileWidth * TileHeight * sizeof(uint16_t);
+}
+
+//Which frame of its sheet the part shows. The frames are stacked down a sheet one tile wide, so
+//this is also the row the frame starts at, in tiles
+uint8_t CWorldPart_SpriteFrame(CWorldPart* WorldPart)
+{
+	return WorldPart->AnimPhase;
 }
 
 void CWorldPart_Draw(CWorldPart* WorldPart)
@@ -1017,8 +1046,10 @@ void CWorldPart_Draw(CWorldPart* WorldPart)
 	if (!WorldPart->BHide)
 	{
 		CWorldPart_Event_BeforeDraw(WorldPart);
-		DrawImageTransparent(WorldPart->X - WorldParts->ViewPort->MinScreenX, WorldPart->Y - WorldParts->ViewPort->MinScreenY,
-		                     TileWidth, TileHeight, CWorldPart_SpriteData(WorldPart));
+			DrawSpriteFrame(WorldPart->X - WorldParts->ViewPort->MinScreenX,
+	                WorldPart->Y - WorldParts->ViewPort->MinScreenY,
+	                TileWidth, TileHeight, CWorldPart_SpriteData(WorldPart),
+	                CWorldPart_SpriteFrame(WorldPart));
 	}
 }
 

@@ -42,12 +42,19 @@ struct CWorldPart
 	//anim phases max AnimBase 12 + AnimPhases 4 - 1 (15), explosions go up to 7
 	uint8_t AnimBase,AnimCounter,AnimDelay,AnimDelayCounter,AnimPhase,AnimPhases;
 	uint8_t LastAnimPhase;          //AnimPhase as it was last painted, AnimPhaseNeverDrawn = never
-	bool PNeedToKill;
-	bool BHide;
-	bool IsMoving;
-	bool IsDeath;
+	//Four flags in a byte rather than four bytes. The pool is MAXWORLDPARTS of these and is
+	//the largest thing the game asks the heap for, so what a part costs is multiplied by
+	//448: this takes the part from 26 bytes to 22 and the pool from 11648 to 9856, which
+	//is the difference between fitting a 20k device and not. They are read and written as
+	//before, so nothing that uses them changes
+	uint8_t PNeedToKill : 1;
+	uint8_t BHide : 1;
+	uint8_t IsMoving : 1;
+	uint8_t IsDeath : 1;
 };
 
+//asks for the pool of parts up front, see CWorldParts_Create
+void CWorldPart_PoolCreate();
 CWorldPart* CWorldPart_Create(const int8_t PlayFieldXin,const int8_t PlayFieldYin, const uint8_t TypeId);
 void CWorldPart_Hide(CWorldPart* WorldPart);
 
@@ -74,6 +81,8 @@ bool CWorldPart_CanMoveTo(CWorldPart* WorldPart, const int8_t PlayFieldXin,const
 void CWorldPart_Move(CWorldPart* WorldPart);
 void CWorldPart_Draw(CWorldPart* WorldPart);
 const uint8_t* CWorldPart_SpriteData(CWorldPart* WorldPart);
+//which frame of its sheet the part shows, see CWorldPart_SpriteData
+uint8_t CWorldPart_SpriteFrame(CWorldPart* WorldPart);
 
 void CWorldPart_Destroy(CWorldPart* WorldPart);
 

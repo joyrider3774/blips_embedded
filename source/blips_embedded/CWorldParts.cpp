@@ -4,6 +4,8 @@
 #include <string.h>
 #include <inttypes.h>
 #include "CWorldParts.h"
+//the strips hold pictures of the black & white skin too, and those are one bit a pixel
+#include "onebitimage.h"
 #include "CWorldPart.h"
 #include "GameFuncs.h"
 
@@ -33,6 +35,12 @@ CWorldParts* CWorldParts_Create()
 		Result->ActivePlayerFlicker = 0;
 		Result->isLevelPackFileLevel = false;
 		Result->ViewPort = CViewPort_Create(0, 0, NrOfColsVisible, NrOfRowsVisible, 0, 0, NrOfCols - 1, NrOfRows - 1);
+		//The parts come before the strip buffer. Both are asked for when a board is made, and
+		//on a device with little ram there may not be room for both: a board with no parts in
+		//it is an empty level, while a strip buffer that is not there only means the frame is
+		//drawn the slower way. Nothing is held before a board is made, which is what the web
+		//app store needs
+		CWorldPart_PoolCreate();
 #if FLOODFILLFLOOR
 		FloodCreate();
 #endif
@@ -663,10 +671,26 @@ static CellRow cellDirty[CELLSY];
 //A whole cell row at a time. Half rows cost twice the work for every sprite: a part is
 //TileHeight tall, so it lands in both halves and its pixels are walked for each of them.
 //A full row is one window, one push and every part handled once
+//How tall a strip is. A device with little ram may ask for a shorter one: the buffer is
+//WINDOW_WIDTH * BANDHEIGHT pixels of sixteen bits, so halving this halves it. A strip need
+//not be a tile row, the drawing below walks whatever tile rows a strip covers
+#ifndef BANDHEIGHT
 #define BANDHEIGHT (TileHeight)
+#endif
 //allocated with the parts list rather than reserved as a global, so nothing that runs
 //instead of the game pays for it. NULL when it could not be allocated, and the board is
 //then not painted
+//Which strips each part reaches, worked out once a frame instead of once a strip. The strip loop
+//used to ask every part of the level whether it belonged in the strip it was composing, which for a
+//full screen repaint is sixteen passes over the whole list, each one reading a Y out of a part that
+//sits wherever the heap put it. One byte a part says it here instead: 0xFF for a part that is not
+//drawn at all this frame, otherwise the first cell row it reaches with the top bit set when it
+//reaches the row under that as well. PartVisible is asked once a part a frame rather than once a
+//strip with it
+static_assert(CELLSY <= 128, "the strip a part starts in has to fit in seven bits");
+#define PARTSTRIP_NONE 0xFF
+static uint8_t* partStrip = NULL;
+
 static uint16_t* bandBuf = NULL;                    //the strip being composed
 static int16_t bandX0, bandY0, bandW;               //where that strip sits on screen
 static int16_t lastMinScreenX = -30000, lastMinScreenY = -30000;
@@ -676,6 +700,9 @@ static int16_t lastMinScreenX = -30000, lastMinScreenY = -30000;
 //and how many pixels of that control belong to the rows above it.
 //an encoded background is at most 3 bytes per pixel (a one pixel run every time),
 //so the offsets need 32 bits once the screen is bigger than about 147x147
+//Only for a build that can still be asked for an RGB565 skin, see ONEBITONLY: a one bit only
+//build never reads this and the table is the width of the screen twice over
+#if !ONEBITONLY
 #if WINDOW_WIDTH * WINDOW_HEIGHT * 3 < 65536
 typedef uint16_t BgOffset;
 #else
@@ -684,6 +711,7 @@ typedef uint32_t BgOffset;
 static BgOffset bgRowOffset[WINDOW_HEIGHT];
 static uint8_t bgRowUsed[WINDOW_HEIGHT];
 static const uint8_t* bgIndexed = NULL;
+#endif
 
 //pixels are little endian RGB565, read per byte as the images are uint8_t arrays
 static inline uint16_t ReadPixel(const uint8_t* p)
@@ -850,6 +878,7 @@ static void MarkPartDirty(CWorldParts* WorldParts, CWorldPart* Part)
 	                      TileWidth, TileHeight);
 }
 
+#if !ONEBITONLY
 static void IndexBackground()
 {
 	const uint8_t* data = IMGBackground;
@@ -871,6 +900,7 @@ static void IndexBackground()
 	}
 	bgIndexed = IMGBackground;
 }
+#endif
 
 //Screen columns of the strip that a floor tile will cover completely, per row of the
 //strip. The floor is painted opaque over the background, so those pixels are left out of
@@ -950,21 +980,81 @@ static void BandBufCreate()
 	if (bandBuf)
 		return;
 	bandBuf = (uint16_t*)malloc(WINDOW_WIDTH * BANDHEIGHT * sizeof(uint16_t));
+	//Only the strip buffer is worth giving up for: without it nothing is painted at all. partStrip
+	//merely saves the strip loop some work, so a device that cannot spare it still draws
+	partStrip = (uint8_t*)malloc(MAXWORLDPARTS);
 	if (!bandBuf)
+	{
 		Platform_Log("BandBufCreate: out of heap, %" PRIu32 " free\n", Platform_FreeHeap());
+		free(partStrip);
+		partStrip = NULL;
+	}
+	else if (!partStrip)
+		Platform_Log("BandBufCreate: no room for the strip index, the board still draws\n");
 }
 
 static void BandBufDestroy()
 {
 	free(bandBuf);
 	bandBuf = NULL;
+	free(partStrip);
+	partStrip = NULL;
 	//the next board has to paint everything again
+#if !ONEBITONLY
 	bgIndexed = NULL;
+#endif
 	lastMinScreenX = -30000;
 	lastMinScreenY = -30000;
 }
 
 //the background is a full screen image so it lines up with the band
+#if ONEBITIMAGES
+//The same, for a background packed one bit a pixel.
+//This stands in for the index the run length encoded background builds, see IndexBackground: a
+//plane packed one bit a pixel cannot be entered in the middle, since a row of it may be told to
+//repeat the row above. What is kept instead is the reader itself, carried from one strip to the
+//next, and the row it stands at. The picture does not scroll, so that row is simply a screen row
+//and the strips of a frame are composed from the top down: only the rows between the strip that
+//was done last and this one have to be passed over. Starting from the top for every strip meant
+//decoding the whole picture once per strip, eight and a half times over for a full screen repaint,
+//and that was most of what a scrolling frame spent its time on
+static OneBitReader bgPlane;
+static const uint8_t* bgPlaneFor = NULL;             //the picture it was started on
+static int16_t bgPlaneAt = -1;                       //the screen row it stands at, -1 when unset
+//The row it read last, which is also the row it decodes the next one into. A plane packed as rows
+//may say the next row is this one again, so the two cannot be separate buffers
+static uint8_t bgPlaneRow[(WINDOW_WIDTH + 7) / 8];
+
+static PLATFORM_HOT_CODE void BandBackgroundOneBit()
+{
+	const int stride = (WINDOW_WIDTH + 7) / 8;
+	//A strip above the one that was done last cannot be reached by going on, so the picture is
+	//taken from the top again. That is every first strip of a frame, and the skin changing
+	if ((bgPlaneAt < 0) || (bgPlaneAt > bandY0) || (bgPlaneFor != IMGBackground))
+	{
+		OneBitReaderInit(&bgPlane, IMGBackground + ONEBIT_HEADER, OneBitFlags(IMGBackground), false);
+		bgPlaneFor = IMGBackground;
+		bgPlaneAt = 0;
+	}
+	OneBitReaderSkip(&bgPlane, bandY0 - bgPlaneAt, stride, bgPlaneRow);
+	bgPlaneAt = bandY0 + BANDHEIGHT;
+	for (int16_t r = 0; r < BANDHEIGHT; r++)
+	{
+		OneBitReaderRow(&bgPlane, bgPlaneRow, stride);
+		uint16_t* drow = &bandBuf[r * bandW];
+		//the opaque sprites paint over these, so they are left out
+		const int16_t hide0 = covX0[r], hide1 = covX1[r];
+		for (int16_t x = 0; x < bandW; x++)
+		{
+			const int16_t sx = bandX0 + x;
+			if ((hide1 > hide0) && (sx >= hide0) && (sx < hide1))
+				continue;
+			drow[x] = OneBitAt(bgPlaneRow, sx) ? ONEBIT_SET : ONEBIT_CLEAR;
+		}
+	}
+}
+#endif
+
 static void BandBackground()
 {
 	if (!IMGBackground)
@@ -974,6 +1064,14 @@ static void BandBackground()
 		return;
 	}
 	//a new skin brings a new background
+#if ONEBITIMAGES
+	if (skinImagesOneBit)
+	{
+		BandBackgroundOneBit();
+		return;
+	}
+#endif
+#if !ONEBITONLY
 	if (bgIndexed != IMGBackground)
 		IndexBackground();
 
@@ -1053,10 +1151,51 @@ static void BandBackground()
 			data += run ? 3 : 1 + count * 2;
 		}
 	}
+#endif
 }
 
 //blit an 8x8 sprite that sits at screen position sx,sy, clipped to the band
-static void BandSprite(int16_t sx, int16_t sy, const uint8_t* image, bool keyed)
+#if ONEBITIMAGES
+//The same, for a sprite packed one bit a pixel. The frames of a sheet are stacked down it, so the
+//rows the strip wants are that many tiles further down, and the rows before them are passed over
+//without their pixels being looked at
+static PLATFORM_HOT_CODE void BandSpriteOneBit(int16_t sx, int16_t sy, const uint8_t* image, uint8_t frame,
+                             bool keyed, int16_t r0, int16_t r1, int16_t c0, int16_t c1)
+{
+	const int stride = (OneBitWidth(image) + 7) / 8;
+	const int flags = OneBitFlags(image);
+	const int maskAt = OneBitMaskAt(image);
+	const bool useMask = keyed && (maskAt != 0);
+	uint8_t rowPixels[ONEBIT_MAX_STRIDE];
+	uint8_t rowMask[ONEBIT_MAX_STRIDE];
+	const int first = frame * TileHeight + r0;
+	OneBitReader plane;
+	OneBitReaderInit(&plane, image + ONEBIT_HEADER, flags, false);
+	OneBitReaderSkip(&plane, first, stride, rowPixels);
+	OneBitReader maskPlane;
+	if (useMask)
+	{
+		OneBitReaderInit(&maskPlane, image + maskAt, flags, true);
+		OneBitReaderSkip(&maskPlane, first, stride, rowMask);
+	}
+	for (int16_t r = r0; r < r1; r++)
+	{
+		OneBitReaderRow(&plane, rowPixels, stride);
+		if (useMask)
+			OneBitReaderRow(&maskPlane, rowMask, stride);
+		uint16_t* drow = &bandBuf[(sy + r - bandY0) * bandW + (sx + c0 - bandX0)];
+		for (int16_t c = c0; c < c1; c++)
+		{
+			//a clear mask bit is a pixel the sprite does not cover
+			if (useMask && !OneBitAt(rowMask, c))
+				continue;
+			drow[c - c0] = OneBitAt(rowPixels, c) ? ONEBIT_SET : ONEBIT_CLEAR;
+		}
+	}
+}
+#endif
+
+static void BandSprite(int16_t sx, int16_t sy, const uint8_t* image, uint8_t frame, bool keyed)
 {
 	if (!image)
 		return;
@@ -1071,6 +1210,13 @@ static void BandSprite(int16_t sx, int16_t sy, const uint8_t* image, bool keyed)
 	const int16_t r1 = (sy + TileHeight > bandY0 + BANDHEIGHT) ? bandY0 + BANDHEIGHT - sy : TileHeight;
 	const int16_t c0 = (sx < bandX0) ? bandX0 - sx : 0;
 	const int16_t c1 = (sx + TileWidth > bandX0 + bandW) ? bandX0 + bandW - sx : TileWidth;
+#if ONEBITIMAGES
+	if (skinImagesOneBit)
+	{
+		BandSpriteOneBit(sx, sy, image, frame, keyed, r0, r1, c0, c1);
+		return;
+	}
+#endif
 	const int16_t cols = c1 - c0;
 	//little endian RGB565 like the strip, so a visible row is copied as it is
 	for (int16_t r = r0; r < r1; r++)
@@ -1164,6 +1310,25 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 		Part->LastAnimPhase = Part->AnimPhase;
 	}
 
+	//Which strips each part reaches, see partStrip. This is the work the strip loop below used to
+	//do again for every strip: reading a part's Y and asking whether it is shown at all
+	for (Teller = 0; partStrip && (Teller < WorldParts->ItemCount); Teller++)
+	{
+		CWorldPart* Part = WorldParts->Items[Teller];
+		const int16_t sy = Part->Y - msy;
+		if ((sy + TileHeight <= 0) || (sy >= WINDOW_HEIGHT) || !PartVisible(WorldParts, Part))
+		{
+			partStrip[Teller] = PARTSTRIP_NONE;
+			continue;
+		}
+		//a part hanging off the top of the screen reaches row 0 and no other
+		const int16_t r0 = (sy < 0) ? 0 : (int16_t)(sy / TileHeight);
+		int16_t r1 = (int16_t)((sy + TileHeight - 1) / TileHeight);
+		if (r1 >= CELLSY)
+			r1 = CELLSY - 1;
+		partStrip[Teller] = (uint8_t)(r0 | ((r1 > r0) ? 0x80 : 0));
+	}
+
 	//compose and push one strip per row that has dirty cells
 	for (int16_t cy = 0; cy < CELLSY; cy++)
 	{
@@ -1194,6 +1359,9 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 		bandY0 = cy * TileHeight;
 
 		//where the opaque sprites will paint over the background, so it is not decoded there
+#if CHGAME_TIMING
+		uint32_t tSection = Platform_Micros();
+#endif
 #if FLOODFILLFLOOR
 		if (hasFloor)
 			BandFindCovered(msx, msy);
@@ -1202,8 +1370,16 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 #else
 		BandClearCovered();
 #endif
+#if CHGAME_TIMING
+		bandCoverUs += Platform_Micros() - tSection;
+		tSection = Platform_Micros();
+#endif
 
 		BandBackground();
+#if CHGAME_TIMING
+		bandBgUs += Platform_Micros() - tSection;
+		tSection = Platform_Micros();
+#endif
 
 #if FLOODFILLFLOOR
 		//floor, only the playfield tiles that reach into this strip
@@ -1213,21 +1389,37 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 		for (int16_t ty = wy / TileHeight; ty <= (wy + BANDHEIGHT - 1) / TileHeight; ty++)
 			for (int16_t tx = wx0 / TileWidth; tx <= wx1 / TileWidth; tx++)
 				if (hasFloor && (tx >= 0) && (tx < NrOfCols) && (ty >= 0) && (ty < NrOfRows) && BitGet(Flood->floorHere, TILEBIT(tx, ty)))
-					BandSprite(tx * TileWidth - msx, ty * TileHeight - msy, IMGFloor, !IMGFloorOpaque);
+					BandSprite(tx * TileWidth - msx, ty * TileHeight - msy, IMGFloor, 0, !IMGFloorOpaque);
 #endif
 
 		//the parts, in the order the list is sorted so layering is kept
 		for (Teller = 0; Teller < WorldParts->ItemCount; Teller++)
 		{
 			CWorldPart* Part = WorldParts->Items[Teller];
-			int16_t sy = Part->Y - msy;
-			if ((sy + TileHeight <= bandY0) || (sy >= bandY0 + BANDHEIGHT))
-				continue;
-			if (!PartVisible(WorldParts, Part))
-				continue;
+			if (partStrip)
+			{
+				//the row this part starts in, and whether it reaches the one after it
+				const uint8_t strip = partStrip[Teller];
+				const uint8_t first = (uint8_t)(strip & 0x7F);
+				if ((strip == PARTSTRIP_NONE) ||
+				    ((first != (uint8_t)cy) && (!(strip & 0x80) || (first + 1 != cy))))
+					continue;
+			}
+			else
+			{
+				const int16_t sy = Part->Y - msy;
+				if ((sy + TileHeight <= bandY0) || (sy >= bandY0 + BANDHEIGHT))
+					continue;
+				if (!PartVisible(WorldParts, Part))
+					continue;
+			}
 			//a box or a wall has no transparent pixel, its rows go in as one copy
-			BandSprite(Part->X - msx, sy, CWorldPart_SpriteData(Part), !PartOpaque(Part->Type));
+			BandSprite(Part->X - msx, Part->Y - msy, CWorldPart_SpriteData(Part), CWorldPart_SpriteFrame(Part), !PartOpaque(Part->Type));
 		}
+#if CHGAME_TIMING
+		//the floor above and the parts here, which is everything drawn over the background
+		bandSpriteUs += Platform_Micros() - tSection;
+#endif
 
 		//moving parts go on top, as they did before
 		for (Teller = 0; Teller < WorldParts->MoveAbleItemCount; Teller++)
@@ -1235,7 +1427,7 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 			CWorldPart* Part = WorldParts->MoveAbleItems[Teller];
 			if (Part->BHide)
 				continue;
-			BandSprite(Part->X - msx, Part->Y - msy, CWorldPart_SpriteData(Part), !PartOpaque(Part->Type));
+			BandSprite(Part->X - msx, Part->Y - msy, CWorldPart_SpriteData(Part), CWorldPart_SpriteFrame(Part), !PartOpaque(Part->Type));
 		}
 
 #if LOVYANGFX

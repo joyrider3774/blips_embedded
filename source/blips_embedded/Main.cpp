@@ -17,7 +17,10 @@
 //The program itself, Game_Setup and Game_Loop are called by the device's own source
 
 const uint32_t timePerFrame =  1000000 / FPS;
-static float frameRate = 0;
+//The frame rate in hundredths, which is what the debug header prints. It is not a float:
+//no device here has floating point in hardware, and the software that stands in for it
+//costs kilobytes of flash for a figure nothing but that header ever reads
+static uint32_t frameRate = 0;
 static uint32_t currentTime = 0, lastTime = 0, frameTime = 0;
 static bool endFrame = true;
 bool webAppStore = false;
@@ -55,8 +58,8 @@ static void printDebugCpuRamLoad()
         {
             lastUpdate = now;
             //the whole frames per second and the fraction 0..99, without FPSLOCK the rate can pass 255
-            uint16_t fps_int = (uint16_t)frameRate;
-            uint8_t fps_frac = (uint8_t)((frameRate - fps_int) * 100);
+            uint16_t fps_int = (uint16_t)(frameRate / 100);
+            uint8_t fps_frac = (uint8_t)(frameRate % 100);
             //S is the least sketch stack that has been free since boot, out of 4096 bytes
             //L: is the lowest free heap since boot, in the same column as R: on the line above
             //The figures go over as signed, which every one of these devices prints. The CHGame links a
@@ -130,7 +133,8 @@ void Game_Loop(void)
     #endif
         endFrame = false;
         //without the lock two frames can start within the same microsecond on a fast PC
-        frameRate = 1000000.0 / (frameTime ? frameTime : 1);
+        //a second in microseconds, times a hundred so the answer is in hundredths
+        frameRate = 100000000UL / (frameTime ? frameTime : 1);
         lastTime = currentTime;
         prevButtons = currButtons;
         currButtons = Platform_GetButtons();

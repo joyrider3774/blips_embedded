@@ -11,9 +11,9 @@ int8_t SelectedLevel = 0, SelectedLevelPack = 0, AskingQuestionID = -1;
 bool AskingQuestion=false;
 CWorldParts *WorldParts;
 CLevelPackFile* LevelPackFile;
-//the packs are built in, so their names stay in flash instead of being copied into ram
-const char* const InstalledLevelPacks[MaxLevelPacks] = {"bips.bip", "bips_gold.bip", "bips_platinum.bip", "bips_gold_2_players.bip"};
-const char* LevelPackName = InstalledLevelPacks[0];
+//the names of the packs live in the table tools/convert_levelpacks.py writes, see
+//CLevelPackFile_BuiltInName, so that there is one list of them and not two
+const char* LevelPackName = CLevelPackFile_BuiltInName(0);
 uint32_t framecount = 0, frameUpStart = 0, frameDownStart = 0, frameLeftStart = 0, frameRightStart = 0;
 uint8_t currButtons, prevButtons;
 uint8_t Selection = 0;

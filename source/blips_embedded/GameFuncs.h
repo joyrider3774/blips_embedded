@@ -23,13 +23,17 @@ bool AskQuestionUpdate(int8_t* Id, bool* Answer, bool MustBeAButton);
 void SearchForLevelPacks();
 void SaveSettings();
 void LoadSettings();
+//1 while the skin in use keeps its pictures one bit a pixel, see onebitimage.h
+extern bool skinImagesOneBit;
 void LoadGraphics();
 uint8_t CurrentSkin(void);
 PLATFORM_FAST_CODE void DrawImage(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image);
 //the same, magenta pixels are left out
 PLATFORM_FAST_CODE void DrawImageTransparent(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image);
 //draws a run length encoded full screen image (tools/png2rle565.py)
-PLATFORM_FAST_CODE void pushImageRLE(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* data);
+PLATFORM_FAST_CODE //draws one frame of a sprite sheet, see CWorldPart_SpriteData
+void DrawSpriteFrame(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image, uint8_t frame);
+void pushImageRLE(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* data);
 //only exists with a screen buffer: draws an image into it, transparent skips magenta pixels
 PLATFORM_FAST_CODE void DrawImageToBuffer(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image, bool transparent);
 #endif

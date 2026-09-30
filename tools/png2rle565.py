@@ -18,8 +18,15 @@ import os
 import sys
 from PIL import Image
 
+import onebit
+
 FULLSCREEN_IMAGES = ["background", "instructions", "intro1", "intro2", "titlescreen"]
 SKIN_PREFIX = {"default": "default", "black_white": "black_white"}
+#The black & white skin shows two colours, so it is packed one bit a pixel rather than kept
+#as RGB565, which is both smaller and quicker to draw, see tools/onebit.py. The pictures
+#keep their names, the game picks the routines to draw them with at build time
+ONE_BIT_SKINS = {"black_white"}
+COLOR_TRANSPARENT = 0xF81F
 MAX_COUNT = 128
 
 
@@ -92,6 +99,22 @@ def write_header(path, source_name, var, width, height, data):
         f.write("\n".join(lines) + "\n")
 
 
+def convert(src, out, var, skin):
+    """Writes the header for one full screen picture into out, in the format its skin is stored
+    in. Every caller wants that same choice made, so it is made here and not in each of them."""
+    width, height, pixels = to_rgb565(src)
+    if skin in ONE_BIT_SKINS:
+        data = onebit.encode(pixels, width, height, COLOR_TRANSPARENT)
+        onebit.write_header(out, os.path.basename(src), var, var + "_rle", width, height, data,
+                            "png2rle565.py")
+    else:
+        data = rle_encode(pixels)
+        #never write something that does not decode back to the picture
+        assert rle_decode(data, len(pixels)) == pixels, src
+        write_header(out, os.path.basename(src), var, width, height, data)
+    return width, height, len(data)
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     skins_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(here, "..", "assets", "skins")
@@ -100,12 +123,10 @@ def main():
         #the folder is made here, the converter is run into a fresh one as often as not
         os.makedirs(os.path.join(images_dir, skin), exist_ok=True)
         for name in FULLSCREEN_IMAGES:
-            width, height, pixels = to_rgb565(os.path.join(skins_dir, skin, name + ".png"))
-            data = rle_encode(pixels)
-            assert rle_decode(data, len(pixels)) == pixels
             out = os.path.join(images_dir, skin, name + "_RLE565.h")
-            write_header(out, name + ".png", "%s_%s" % (prefix, name), width, height, data)
-            print("%-8s %-12s %6d -> %6d bytes" % (skin, name, len(pixels) * 2, len(data)))
+            width, height, encoded = convert(os.path.join(skins_dir, skin, name + ".png"), out,
+                                             "%s_%s" % (prefix, name), skin)
+            print("%-8s %-12s %6d -> %6d bytes" % (skin, name, width * height * 2, encoded))
 
 
 if __name__ == "__main__":

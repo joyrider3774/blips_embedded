@@ -16,7 +16,7 @@ static void SelectLevelPack(int8_t Delta)
 		SelectedLevelPack = InstalledLevelPacksCount - 1;
 	if (SelectedLevelPack > InstalledLevelPacksCount - 1)
 		SelectedLevelPack = 0;
-	LevelPackName = InstalledLevelPacks[SelectedLevelPack];
+	LevelPackName = CLevelPackFile_BuiltInName(SelectedLevelPack);
 	CLevelPackFile_loadFile(LevelPackFile, LevelPackName, NrOfCols, NrOfRows, LPLevelHeaderOnly);
 	playMenuSound();
 	SaveSettings();

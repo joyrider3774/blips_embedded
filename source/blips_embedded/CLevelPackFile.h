@@ -84,6 +84,9 @@ CLevelPackFile* CLevelPackFile_Create();
 void CLevelPackFile_Destroy(CLevelPackFile* LevelPackFile);
 bool CLevelPackFile_parseText(CLevelPackFile* LevelPackFile, const unsigned char* text, size_t textLen, uint8_t maxWidth, uint8_t maxHeight, int8_t level);
 bool CLevelPackFile_loadFile(CLevelPackFile* LevelPackFile, const char* filename, uint8_t maxWidth, uint8_t maxHeight, int8_t level);
+//the level packs LEVELPACKS builds in: how many there are and the name of each
+uint8_t CLevelPackFile_BuiltInCount(void);
+const char* CLevelPackFile_BuiltInName(uint8_t index);
 bool CLevelPackFile_loadLevel(CLevelPackFile* LevelPackFile, int8_t level);
 
 #endif
