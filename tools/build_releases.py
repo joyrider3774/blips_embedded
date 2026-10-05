@@ -110,12 +110,12 @@ TARGETS = [
     #kept run length encoded and the two big ones were cut in half in assets/levelpacks,
     #which is what brings them all inside that. The bit is written out as a number here
     #because that is what the build hands over, see LP_ in Defines.h
-    ("CHGame", "_1", {"LEVELPACKS": 1 << 0}),    #bips_1.bip            3400 bytes encoded
-    ("CHGame", "_2", {"LEVELPACKS": 1 << 1}),    #bips_2.bip            3968 bytes encoded
-    ("CHGame", "_3", {"LEVELPACKS": 1 << 2}),    #bips_gold.bip         2765 bytes encoded
-    ("CHGame", "_4", {"LEVELPACKS": 1 << 3}),    #bips_gold_2_players.bip 2822 bytes encoded
-    ("CHGame", "_5", {"LEVELPACKS": 1 << 4}),    #bips_platinum_1.bip   2905 bytes encoded
-    ("CHGame", "_6", {"LEVELPACKS": 1 << 5}),    #bips_platinum_2.bip   2957 bytes encoded
+    ("CHGame", "_1", {"CHGAME_SAVE_VARIANT": 1, "LEVELPACKS": 1 << 0}),    #bips_1.bip            3400 bytes encoded
+    ("CHGame", "_2", {"CHGAME_SAVE_VARIANT": 2, "LEVELPACKS": 1 << 1}),    #bips_2.bip            3968 bytes encoded
+    ("CHGame", "_3", {"CHGAME_SAVE_VARIANT": 3, "LEVELPACKS": 1 << 2}),    #bips_gold.bip         2765 bytes encoded
+    ("CHGame", "_4", {"CHGAME_SAVE_VARIANT": 4, "LEVELPACKS": 1 << 3}),    #bips_gold_2_players.bip 2822 bytes encoded
+    ("CHGame", "_5", {"CHGAME_SAVE_VARIANT": 5, "LEVELPACKS": 1 << 4}),    #bips_platinum_1.bip   2905 bytes encoded
+    ("CHGame", "_6", {"CHGAME_SAVE_VARIANT": 6, "LEVELPACKS": 1 << 5}),    #bips_platinum_2.bip   2957 bytes encoded
     ("PyBadge", "", {}),
     ("PyGamer", "", {}),
     ("PicoSystem", "", {}),
@@ -215,7 +215,7 @@ DEVICES = {
         "uf2": (0x4000, 0x55114460),
     },
     "PicoSystem": {
-        "fqbn": "rp2040:rp2040:generic:flash=16777216_0,boot2=boot2_w25q080_2_padded_checksum,freq=133,usbstack=picosdk,opt=Small",
+        "fqbn": "rp2040:rp2040:generic:flash=16777216_0,boot2=boot2_w25q080_2_padded_checksum,freq=125,usbstack=picosdk,opt=Small",
         "outputs": ["uf2"],
     },
     "Explorer": {
