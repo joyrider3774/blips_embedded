@@ -6,6 +6,12 @@
 //the one bit pictures of the black & white skin, which the band renderer reads too
 #include "onebitimage.h"
 #include "Sound.h"
+//the art read off a card, for a build with CARDIMAGES on
+#include "cardimages.h"
+//A card build has no art in flash at all: every skin is on the card in full RGB565 and the
+//pictures come off it while the game runs, see cardimages.h. So none of the generated headers
+//are part of it
+#if !CARDIMAGES
 //only the skins FORCESKIN leaves in are part of the build (a 1 bpp buffer forces the black & white one)
 #if SKINBUILT(0)
 #include GAME_IMAGE(default/background_RLE565.h)
@@ -37,6 +43,7 @@
 #include GAME_IMAGE(black_white/player2_RGB565_LE.h)
 #include GAME_IMAGE(black_white/titlescreen_RLE565.h)
 #include GAME_IMAGE(black_white/wall_RGB565_LE.h)
+#endif
 #endif
 
 //the skin in use: the one FORCESKIN builds in (a 1 bpp buffer forces the black & white one), or
@@ -104,6 +111,90 @@ void DrawImageToBuffer(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t
 }
 #endif
 
+#if CARDIMAGES
+//A picture from the card: the w by h part at sx,sy of it, at x,y on the screen.
+//Everything the game draws goes through here in a card build. There is no pointer into flash to
+//step, so a frame of a sprite sheet is named by the row it starts at (sy) rather than by a
+//pointer that has already been moved, see CWorldPart_SpriteData
+void DrawImageCardPart(int16_t x, int16_t y, int16_t sx, int16_t sy, int16_t w, int16_t h,
+                       const uint8_t* image, bool transparent)
+{
+	if (!image || (w <= 0) || (h <= 0))
+		return;
+	const int16_t c0 = (x < 0) ? -x : 0;
+	const int16_t c1 = (x + w > WINDOW_WIDTH) ? WINDOW_WIDTH - x : w;
+	const int16_t r0 = (y < 0) ? -y : 0;
+	const int16_t r1 = (y + h > WINDOW_HEIGHT) ? WINDOW_HEIGHT - y : h;
+	if ((c0 >= c1) || (r0 >= r1))
+		return;
+	const int16_t cols = c1 - c0;
+	const int16_t dx = x + c0;
+	//little endian RGB565, the form the card holds and the display takes
+	uint16_t row[WINDOW_WIDTH];
+#if SCREENBUFFER
+	void* dst = SCREENBUFFER_PIXELS();
+	if (!dst)
+		return;
+	for (int16_t r = r0; r < r1; r++)
+	{
+		const int16_t dy = y + r;
+		//a row that did not come leaves the buffer as it was rather than drawing what
+		//happens to be in the scratch
+		if (!CardImages_Row(image, sx + c0, sy + r, cols, row))
+			continue;
+  #if SCREENBUFFER == 16
+		uint16_t* d = &((uint16_t*)dst)[dy * WINDOW_WIDTH + dx];
+		for (int16_t c = 0; c < cols; c++)
+			//magenta is the transparent key
+			if (!transparent || (row[c] != 0xF81F))
+				d[c] = (uint16_t)((row[c] >> 8) | (row[c] << 8));
+  #elif SCREENBUFFER == 8
+		uint8_t* d = &((uint8_t*)dst)[dy * WINDOW_WIDTH + dx];
+		for (int16_t c = 0; c < cols; c++)
+			if (!transparent || (row[c] != 0xF81F))
+				d[c] = ToBuffer332(row[c], (int16_t)(dx + c), dy);
+  #else
+		for (int16_t c = 0; c < cols; c++)
+			if (!transparent || (row[c] != 0xF81F))
+				SetBufferBit((uint8_t*)dst, dx + c, dy, row[c]);
+  #endif
+	}
+#else
+	//THE BUS RULE: where the card shares the display's bus, reading it takes the bus over - the
+	//panel is deselected and the SPI set up for the card, see Platform_CardRead. So a row is
+	//fetched with nothing of the display's open and only then sent, each row in a window of its
+	//own. A window around the whole part cannot survive a card read in the middle of filling it
+	for (int16_t r = r0; r < r1; r++)
+	{
+		if (!CardImages_Row(image, sx + c0, sy + r, cols, row))
+			continue;
+		int16_t c = 0;
+		while (c < cols)
+		{
+			//every run of opaque pixels goes out as one, what is left out keeps what is shown
+			if (transparent)
+				while ((c < cols) && (row[c] == 0xF81F))
+					c++;
+			const int16_t runX = c;
+			while ((c < cols) && (!transparent || (row[c] != 0xF81F)))
+				c++;
+			if (c == runX)
+				continue;
+			SCREEN.startWrite();
+  #if LOVYANGFX
+			SCREEN.setAddrWindow(dx + runX, y + r, c - runX, 1);
+			//true: the values are plain RGB565, the library puts them in display order
+			SCREEN.writePixels(row + runX, c - runX, true);
+  #else
+			GFX.pushImage(dx + runX, y + r, c - runX, 1, row + runX);
+  #endif
+			SCREEN.endWrite();
+		}
+	}
+#endif
+}
+#endif
+
 //Draws an opaque RGB565 image. TFT_eSprite's 1 bpp pushImage expects 1 bpp image data,
 //so there the pixels are converted and written into the buffer directly. LovyanGFX
 //reads image data through plain pointers, but PROGMEM on the ESP8266 is flash that
@@ -113,6 +204,11 @@ void DrawImage(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* image)
 {
 	if (!image)
 		return;
+#if CARDIMAGES
+	//the picture is on the card and carries its own size, so it is drawn whole from its first row
+	DrawImageCardPart(x, y, 0, 0, w, h, image, false);
+	return;
+#endif
 #if ONEBITIMAGES
 	if (skinImagesOneBit)
 	{
@@ -167,6 +263,10 @@ void DrawImageTransparent(int16_t x, int16_t y, int16_t w, int16_t h, const uint
 {
 	if (!image)
 		return;
+#if CARDIMAGES
+	DrawImageCardPart(x, y, 0, 0, w, h, image, true);
+	return;
+#endif
 #if ONEBITIMAGES
 	if (skinImagesOneBit)
 	{
@@ -240,6 +340,12 @@ void DrawSpriteFrame(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* 
 {
 	if (!image)
 		return;
+#if CARDIMAGES
+	//the sheet is handed over whole and the frame is the part of it that starts at that row,
+	//there being no pointer to step, see CWorldPart_SpriteData
+	DrawImageCardPart(x, y, 0, (int16_t)(frame * h), w, h, image, true);
+	return;
+#endif
 #if ONEBITIMAGES
 	if (skinImagesOneBit)
 	{
@@ -252,6 +358,12 @@ void DrawSpriteFrame(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* 
 
 void pushImageRLE(int16_t x, int16_t y, int16_t w, int16_t h, const uint8_t* data)
 {
+#if CARDIMAGES
+	//nothing on the card is encoded: every picture is there in full, so the full screen ones are
+	//drawn like any other. Encoding exists to fit them in flash, which a card build does not do
+	DrawImageCardPart(x, y, 0, 0, w, h, data, false);
+	return;
+#endif
 #if ONEBITIMAGES
 	if (skinImagesOneBit)
 	{
@@ -431,6 +543,49 @@ void LoadGraphics(void)
 {
 	//the black & white skin keeps its pictures one bit a pixel, the others as RGB565
 	skinImagesOneBit = ONEBITIMAGES && (CurrentSkin() == SKINBLACKWHITE);
+#if CARDIMAGES
+	//Every picture comes off the card, by the numbers tools/mkcard.py generated into
+	//cardindex.h. The card holds every skin, so the one the game is on is chosen here first:
+	//that rebuilds the descriptors and empties the arena, and the pointers below then come
+	//from the new skin. This is what a skin change in the options runs, which is why it is
+	//here and not only at startup.
+	//The skins are on the card in the order the game numbers them, see cardindex.h
+	CardImages_UseSkin(CurrentSkin());
+#if FLATBACKGROUND
+	//Drawn as one plain colour instead, which ColorWhite below is: NULL is what the drawing
+	//already takes as "no picture, use the plain colour". See FLATBACKGROUND in defines.h
+	IMGBackground = NULL;
+#else
+	IMGBackground = CardImages_Get(CARD_IMG_BACKGROUND);
+#endif
+	IMGBomb = CardImages_Get(CARD_IMG_BOMB);
+	IMGBox = CardImages_Get(CARD_IMG_BOX);
+	IMGDiamond = CardImages_Get(CARD_IMG_DIAMOND);
+	IMGExplosion = CardImages_Get(CARD_IMG_EXPLOSION);
+	IMGFloor = CardImages_Get(CARD_IMG_FLOOR);
+	IMGInstructions = CardImages_Get(CARD_IMG_INSTRUCTIONS);
+	IMGIntro1 = CardImages_Get(CARD_IMG_INTRO1);
+	IMGIntro2 = CardImages_Get(CARD_IMG_INTRO2);
+	IMGPlayer = CardImages_Get(CARD_IMG_PLAYER);
+	IMGPlayer2 = CardImages_Get(CARD_IMG_PLAYER2);
+	IMGTitleScreen = CardImages_Get(CARD_IMG_TITLESCREEN);
+	IMGWall = CardImages_Get(CARD_IMG_WALL);
+	//Worked out by reading the pictures, which off a card would be the whole sheet read for an
+	//answer that only saves the strips some drawing. So the shortcut is simply not taken
+	IMGBoxOpaque = IMGWallOpaque = IMGFloorOpaque = false;
+	switch (CurrentSkin())
+	{
+		case CARD_SKIN_DEFAULT:
+			ColorWhite = SCREEN.color565(132,155,189);
+			ColorBlack = SCREEN.color565(33,75,123);
+			break;
+		case CARD_SKIN_BLACK_WHITE:
+			ColorBlack = SCREEN.color565(0,0,0);
+			ColorWhite = SCREEN.color565(255,255,255);
+			break;
+	}
+	return;
+#else
 	switch (CurrentSkin())
 	{
 #if SKINBUILT(0)
@@ -477,6 +632,7 @@ void LoadGraphics(void)
 			break;
 #endif
 	}
+#endif
 }
 
 // ===========================================================================

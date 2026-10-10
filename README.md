@@ -86,9 +86,10 @@ Every [release](https://github.com/joyrider3774/blips_embedded/releases) has a b
 | [PlayStation](https://en.wikipedia.org/wiki/PlayStation_(console)) | PSX_Blips.exe | open it in an emulator or send it to a console that runs unsigned code, the progress is not saved yet |
 | [PlayStation Portable](https://en.wikipedia.org/wiki/PlayStation_Portable) | PSP_Blips.PBP | rename it to EBOOT.PBP and put it in ms0:/PSP/GAME/Blips/ on the memory stick, or open it in PPSSPP |
 | [PlayStation Vita](https://en.wikipedia.org/wiki/PlayStation_Vita) | Vita_Blips.vpk | install it with VitaShell on a Vita with homebrew enabled, or open it in Vita3K |
-| [CHGame](https://github.com/bateske/CHGame) | `CHGame_Blips_1.bin` … (6 of them) | flash it over USB with the `chgame-upload` that comes with the board package: `chgame-upload -port COM6 flash CHGame_Blips_1.bin -run`. There is a binary per part, one of the six level packs each: the 50944 bytes of flash do not hold the game and all of its levels at once. |
+| [CHGame](https://github.com/bateske/CHGame) | `CHGame_Blips_1.bin` … (6 of them) **and** `BLIPS.DAT` | flash it over USB with the `chgame-upload` that comes with the board package: `chgame-upload -port COM6 flash CHGame_Blips_1.bin -run`. There is a binary per part, one of the six level packs each: the 50944 bytes of flash do not hold the game and all of its levels at once. **and copy `BLIPS.DAT` into the root of the microSD card**. The game's pictures are on that card and it draws nothing without it: it says so on a screen of its own and stops. Copy the file to a freshly formatted card if it says the file is in too many pieces. |
 | Windows | Windows_Blips.exe | runs on its own, the progress is saved next to it in Blips.sav |
-| MS-DOS | DOS_Blips.zip | unzip BLIPS.EXE onto a DOS machine or into DOSBox and run it, the progress is saved next to it in BLIPS.SAV |
+| MS-DOS | DOS_Blips.zip | unzip BLIPS.EXE onto a DOS machine or into DOSBox and run it, the progress is saved next to it in BLIPS.SAV |
+
 | MS-DOS, not dithered | DOS_Blips_ND.zip | the same program with `DITHERING` 0, unzip BLIPS_ND.EXE and run it the same way. On a 256 colour screen a shade the palette has no colour for is the nearer one it does have, instead of a pattern of the two |
 | Browser | Web_Blips.zip | upload it to an itch.io HTML project, or unzip it and open index.html from a web server, the progress is saved in the browser |
 
@@ -157,7 +158,8 @@ Every device is built with its own settings. These change them for all of the de
 | Option | What it sets | Values |
 | ------ | ------------ | ------ |
 | `--forceskin N` | `FORCESKIN`, the skin built in | `-1`, or `0` to `1` |
-| `--forcescreenbuffer N` | `SCREENBUFFER`, where drawing goes | `0`, `1`, `8` or `16` bits per pixel |
+| `--forcescreenbuffer N` | `SCREENBUFFER`, where drawing goes | `0`, `1`, `8` or `16` bits per pixel |
+
 | `--forcescale N` | `SCALESCREEN`, how the game fills the display | `1` blown up, `0` 1:1 in the middle |
 | `--forcewindowscale N` | `WINDOW_SCALE`, how big the Windows window opens | `1` to `8` times the game's size |
 | `--forcedithering N` | `DITHERING`, whether an 8 or 1 bpp buffer spreads its colours | `1` spread, `0` the nearest colour |
@@ -192,6 +194,22 @@ Its CH32X035 has 50944 bytes of flash for the game and 20464 bytes of RAM, so it
 white skin alone and nothing else: every picture is packed one bit a pixel instead of as RGB565,
 which is what makes the game fit at all. See `FORCESKIN` and `ONEBITIMAGES` in `defines.h` and
 `source/*/PlatformCHGame.h`.
+
+The released build reads its art off the microSD card instead (`CARDIMAGES`, see `cardimages.h`),
+which changes what the device can hold:
+
+* both skins are on the card in full RGB565 and can be picked in the options, instead of the
+  one black & white skin a flash build has room for;
+* the flash does not shrink and the levels are still split over six binaries. The built in
+  skin was already one bit a pixel and small, so the reader and the card drawing cost about as
+  much flash as the art they replace. What a card build buys here is the colour, not the room.
+
+The card file is `BLIPS.DAT`, written into `releases/` by `tools/mkcard.py` as part of the build and
+released beside the binary. It holds a section per kind of data, so what the game later wants from
+the card goes in beside the art rather than in a file of its own. A picture whose rows are each one
+colour is kept as one colour a row rather than as pixels, which is what makes a plain background
+cost nothing. The reader is CHSd, which the board package ships; a flash build needs none of it.
+See `source/*/PlatformCHGame.h` for the switch and `tools/mkcard.py` for what is on the card.
 
 The Windows build draws through the same LovyanGFX 1.1.9, see `platforms/windows/CMakeLists.txt`.
 

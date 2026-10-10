@@ -87,7 +87,6 @@ CWorldPart* CWorldPart_Create(const int8_t PlayFieldXin,const int8_t PlayFieldYi
 		//different from every real AnimPhase, so a new part is always painted once
 		Result->LastAnimPhase = AnimPhaseNeverDrawn;
 		Result->Z = 0;
-		Result->Group = 0;
 		Result->PNeedToKill = false;
 		Result->BHide = false;
 		Result->AnimBase = 0;
@@ -207,11 +206,6 @@ bool CWorldPart_NeedToKill(CWorldPart* WorldPart)
 	return WorldPart->PNeedToKill;
 }
 
-
-uint8_t CWorldPart_GetGroup(CWorldPart* WorldPart) 
-{
-	return WorldPart->Group;
-}
 
 uint8_t CWorldPart_GetType(CWorldPart* WorldPart) 
 {
@@ -1024,6 +1018,11 @@ const uint8_t* CWorldPart_SpriteData(CWorldPart* WorldPart)
 		case IDExplosion:      base = IMGExplosion;   break;
 		default: return NULL;
 	}
+#if CARDIMAGES
+	//A picture on the card is reached by its number and not by an address, so there is nothing
+	//to step either: the sheet is given whole and the frame asked for on its own
+	return base;
+#endif
 #if ONEBITIMAGES
 	//A one bit picture is packed and its rows are encoded, so a frame of a sheet cannot be
 	//reached by stepping the pointer. The sheet is given whole and the frame asked for on its

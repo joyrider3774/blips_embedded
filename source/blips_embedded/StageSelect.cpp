@@ -37,7 +37,12 @@ void StageSelect()
 	if(!AskingQuestion)
 	{
 		if (SelectedLevel == 0)
+#if FLATBACKGROUND
+			//one colour, see FLATBACKGROUND in defines.h
+			GFX.fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, ColorWhite);
+#else
 			pushImageRLE(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, IMGBackground);
+#endif
 		if (SelectedLevel > 0)
 		{
 			boardPainted = CWorldParts_DrawBoard(WorldParts);

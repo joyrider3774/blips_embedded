@@ -13,6 +13,8 @@
 #include "Sound.h"
 #include "Options.h"
 #include "Instructions.h"
+//the art read off a card, for a build with CARDIMAGES on
+#include "cardimages.h"
 
 //The program itself, Game_Setup and Game_Loop are called by the device's own source
 
@@ -74,6 +76,24 @@ static void printDebugCpuRamLoad()
 }
 
 
+#if CARDIMAGES
+//Says what is wrong with the card and leaves it on the screen. Drawn with the display's own font
+//and fills, since every picture the game has is on the card that is not there
+static void CardFailScreen(const char* problem)
+{
+	GFX.fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, SCREEN.color565(0, 0, 0));
+	tftPrint(6, 40, "CARD PROBLEM", SCREEN.color565(255, 255, 255), SCREEN.color565(0, 0, 0), 1);
+	tftPrint(6, 56, problem ? problem : "UNKNOWN", SCREEN.color565(255, 80, 80),
+	         SCREEN.color565(0, 0, 0), 1);
+	tftPrint(6, 80, "PUT " CARD_FILE_NAME, SCREEN.color565(160, 160, 160),
+	         SCREEN.color565(0, 0, 0), 1);
+	tftPrint(6, 92, "ON THE CARD", SCREEN.color565(160, 160, 160),
+	         SCREEN.color565(0, 0, 0), 1);
+	Platform_PresentFrame();
+	Platform_Log("card: %s\n", problem ? problem : "unknown");
+}
+#endif
+
 void Game_Setup(void)
 {
     //webAppStore is set in Platform_Init
@@ -102,6 +122,16 @@ void Game_Setup(void)
     	initSound();
     	initMusic();
     	LoadSettings();
+#if CARDIMAGES
+        //The art is on the card, so it is found before anything is pointed at it. Without it the
+        //game has no pictures at all and there is nothing worth starting: the screen says what is
+        //wrong and the game stops there
+        if (!CardImages_Open())
+        {
+            CardFailScreen(CardImages_Problem());
+            return;
+        }
+#endif
     	LoadGraphics();
     	//with a 1 bpp buffer, the colours its set and clear bits are shown in. The skin is
     	//always black & white there

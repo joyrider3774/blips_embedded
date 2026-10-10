@@ -6,6 +6,8 @@
 #include "CWorldParts.h"
 //the strips hold pictures of the black & white skin too, and those are one bit a pixel
 #include "onebitimage.h"
+//the strips hold pictures read off a card too, for a build with CARDIMAGES on
+#include "cardimages.h"
 #include "CWorldPart.h"
 #include "GameFuncs.h"
 
@@ -701,8 +703,9 @@ static int16_t lastMinScreenX = -30000, lastMinScreenY = -30000;
 //an encoded background is at most 3 bytes per pixel (a one pixel run every time),
 //so the offsets need 32 bits once the screen is bigger than about 147x147
 //Only for a build that can still be asked for an RGB565 skin, see ONEBITONLY: a one bit only
-//build never reads this and the table is the width of the screen twice over
-#if !ONEBITONLY
+//build never reads this and the table is the width of the screen twice over. Nor does a card
+//build: nothing on the card is encoded, so there is no row to index
+#if !ONEBITONLY && !CARDIMAGES
 #if WINDOW_WIDTH * WINDOW_HEIGHT * 3 < 65536
 typedef uint16_t BgOffset;
 #else
@@ -848,7 +851,12 @@ void CWorldParts_MarkAllDirty()
 //game did before any of the dirty cell work.
 bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 {
+#if FLATBACKGROUND
+	//one colour, and IMGBackground is NULL, see LoadGraphics and FLATBACKGROUND in defines.h
+	GFX.fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, ColorWhite);
+#else
 	pushImageRLE(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, IMGBackground);
+#endif
 
 #if FLOODFILLFLOOR
 	//the floodfill only records which tiles are floor, stamp them here
@@ -878,7 +886,7 @@ static void MarkPartDirty(CWorldParts* WorldParts, CWorldPart* Part)
 	                      TileWidth, TileHeight);
 }
 
-#if !ONEBITONLY
+#if !ONEBITONLY && !CARDIMAGES
 static void IndexBackground()
 {
 	const uint8_t* data = IMGBackground;
@@ -1000,7 +1008,7 @@ static void BandBufDestroy()
 	free(partStrip);
 	partStrip = NULL;
 	//the next board has to paint everything again
-#if !ONEBITONLY
+#if !ONEBITONLY && !CARDIMAGES
 	bgIndexed = NULL;
 #endif
 	lastMinScreenX = -30000;
@@ -1063,6 +1071,15 @@ static void BandBackground()
 			bandBuf[i] = ColorWhite;
 		return;
 	}
+#if CARDIMAGES
+	//Not a flat background: the strip is the part of a full screen picture that lands in it.
+	//The rows of a picture lie together in the file, so the whole strip is asked for in one
+	//read rather than a row at a time
+	if (!CardImages_Rows(IMGBackground, bandX0, bandY0, bandW, BANDHEIGHT, bandBuf))
+		for (uint16_t i = 0; i < bandW * BANDHEIGHT; i++)
+			bandBuf[i] = ColorWhite;
+	return;
+#endif
 	//a new skin brings a new background
 #if ONEBITIMAGES
 	if (skinImagesOneBit)
@@ -1071,7 +1088,7 @@ static void BandBackground()
 		return;
 	}
 #endif
-#if !ONEBITONLY
+#if !ONEBITONLY && !CARDIMAGES
 	if (bgIndexed != IMGBackground)
 		IndexBackground();
 
@@ -1210,6 +1227,44 @@ static void BandSprite(int16_t sx, int16_t sy, const uint8_t* image, uint8_t fra
 	const int16_t r1 = (sy + TileHeight > bandY0 + BANDHEIGHT) ? bandY0 + BANDHEIGHT - sy : TileHeight;
 	const int16_t c0 = (sx < bandX0) ? bandX0 - sx : 0;
 	const int16_t c1 = (sx + TileWidth > bandX0 + bandW) ? bandX0 + bandW - sx : TileWidth;
+#if CARDIMAGES
+	//The sheet is on the card and its frames are stacked down it, so the rows this frame covers
+	//start that many tiles down - there is no pointer to step, see CWorldPart_SpriteData
+	{
+		const int16_t cols = c1 - c0;
+		//A sheet small enough to be kept whole sits in RAM, and its rows are copied out of it
+		//exactly as a flash build copies them out of flash: a word at a time, see BandCopy.
+		//That is every sheet a board is made of, which is what makes a board affordable
+		const uint8_t* px = CardImages_Cached(image);
+		if (px)
+		{
+			for (int16_t r = r0; r < r1; r++)
+			{
+				uint16_t* drow = &bandBuf[(sy + r - bandY0) * bandW + (sx + c0 - bandX0)];
+				const uint8_t* src = px + (((frame * TileHeight + r) * TileWidth) + c0) * sizeof(uint16_t);
+				if (keyed)
+					BandCopyKeyed(drow, src, cols);
+				else
+					BandCopy(drow, src, cols);
+			}
+			return;
+		}
+		//too big to keep, so a row at a time off the card. It comes in beside the strip and is
+		//copied over it, the transparent pixels keeping what the strip already holds
+		uint16_t row[TileWidth];
+		for (int16_t r = r0; r < r1; r++)
+		{
+			uint16_t* drow = &bandBuf[(sy + r - bandY0) * bandW + (sx + c0 - bandX0)];
+			if (!CardImages_Row(image, c0, frame * TileHeight + r, cols, row))
+				continue;
+			for (int16_t c = 0; c < cols; c++)
+				//magenta is the transparent key, 0xF81F in RGB565
+				if (!keyed || (row[c] != 0xF81F))
+					drow[c] = row[c];
+		}
+	}
+	return;
+#endif
 #if ONEBITIMAGES
 	if (skinImagesOneBit)
 	{
@@ -1349,12 +1404,20 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 		bandX0 = first * TileWidth;
 		bandW = (last - first + 1) * TileWidth;
 
+		//THE BUS RULE: where the art is read off a card, nothing of the panel's may be open
+		//while a strip is being composed. On a CHGame the card shares SPI1 with the display and
+		//reading it takes the bus over - the panel is deselected and the SPI set up for the
+		//card, see Platform_CardRead - so a window opened here would be left half filled and
+		//the display would never come back. The strip is composed first and the window opened
+		//around the push alone, which is one transaction a strip instead of one a frame
+#if !CARDIMAGES
 		//the chip select sits on the I/O expander, every write transaction costs I2C
 		//traffic, so one transaction is kept open for all the rows of this frame
 		if (!painted)
 			SCREEN.startWrite();
 		//one window for the row, the strip covers all of it
 		SCREEN.setAddrWindow(bandX0, cy * TileHeight, bandW, TileHeight);
+#endif
 
 		bandY0 = cy * TileHeight;
 
@@ -1430,16 +1493,26 @@ bool CWorldParts_DrawBoard(CWorldParts* WorldParts)
 			BandSprite(Part->X - msx, Part->Y - msy, CWorldPart_SpriteData(Part), CWorldPart_SpriteFrame(Part), !PartOpaque(Part->Type));
 		}
 
+#if CARDIMAGES
+		//the strip is composed and the card is done with, so the panel can have the bus
+		SCREEN.startWrite();
+		SCREEN.setAddrWindow(bandX0, cy * TileHeight, bandW, TileHeight);
+#endif
 #if LOVYANGFX
 		//true: bandBuf holds plain RGB565, the library puts it in display order
 		SCREEN.writePixels((const uint16_t*)bandBuf, bandW * BANDHEIGHT, true);
 #else
 		SCREEN.pushPixels(bandBuf, bandW * BANDHEIGHT);
 #endif
+#if CARDIMAGES
+		SCREEN.endWrite();
+#endif
 		painted = true;
 	}
+#if !CARDIMAGES
 	if (painted)
 		SCREEN.endWrite();
+#endif
 
 	if (WorldParts->ActivePlayerFlicker > 0)
 		WorldParts->ActivePlayerFlicker--;

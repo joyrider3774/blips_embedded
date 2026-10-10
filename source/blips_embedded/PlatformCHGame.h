@@ -32,6 +32,49 @@
 //for 0 (straight to the display) or a 1 bpp buffer, which is 2048 bytes. An 8 bpp buffer would be
 //16384 of the 20464 and leave nothing for the stack, the heap and the SD card, so it is not
 //offered. A build can still set this itself
+//There is a card slot on this board, and this device reads its art off it rather than carrying
+//it in flash: every skin in full RGB565 instead of the one reduced skin that fits. See CARDIMAGES
+//in defines.h and the card file tools/mkcard.py writes.
+//Set here and not only by the build, so the Arduino IDE builds the same thing; -DCARDIMAGES=0
+//builds the old flash version. It has to be settled here, before the switches below that ask it
+#ifndef CARDIMAGES
+#define CARDIMAGES 1
+#endif
+//Only such a build, because saying so is what pulls the reader in (CHSd, see the card section of
+//PlatformCHGame.cpp): a flash build needs no library installed
+#if CARDIMAGES
+#define PLATFORM_HAS_CARD 1
+
+//How much RAM the art read off the card is kept in. An arena is static, so it comes out of the
+//same 18416 bytes the heap does, and the heap here holds the pool of world parts: that is
+//MAXWORLDPARTS of them, sized from the busiest level of the pack in the build. At 5120 bytes
+//the level would no longer load at all, which showed as a level solved the moment it started
+//because nothing was in it; packing CWorldPart down to 14 bytes (see CWorldPart.h) handed back
+//about 2900 bytes and is what makes room for this.
+//1536 holds the box, wall, floor, bomb and diamond sheets, 1280 bytes together, which is what
+//a board is made of and is drawn hundreds of times a frame. The explosion (1024) and the two
+//player sheets (2048 each) are read a row at a time instead: there are one or two of each on
+//screen against hundreds of tiles, so they are the ones worth leaving out.
+//Leaving the run length index tables out of a card build (see BgOffset in CWorldParts.cpp)
+//handed back about 500 bytes of this same RAM, and 2560 was tried with it: that would hold the
+//explosion as well and leaves 440 bytes of heap against the 1464 here, which is not a trade
+//worth making for a sheet that is only on screen while something blows up.
+//Measured in the emulator with the busiest pack of the six (bips_gold, 397 parts), and nothing
+//is asked of the heap after the game starts, so what is free in a level is the headroom and
+//not a high water mark
+#ifndef CARDARENA
+#define CARDARENA 1536
+#endif
+
+//The background is drawn as one colour rather than read off the card, see FLATBACKGROUND in
+//defines.h. Both of this game's skins have a background whose rows are each one colour, so the
+//picture and the fill look all but the same, and it is the one picture a scrolling board would
+//otherwise read whole off the card every frame
+#ifndef FLATBACKGROUND
+#define FLATBACKGROUND 1
+#endif
+#endif
+
 #ifndef SCREENBUFFER
 #define SCREENBUFFER 0
 #endif
@@ -48,7 +91,9 @@
 //FORCESKIN in defines.h. The black & white skin is the one that is taken: its pictures are
 //packed one bit a pixel rather than kept as RGB565, which is what makes the game fit at all.
 //A 1 bpp buffer picks that skin itself, and a build can still ask for another one
-#if !defined(FORCESKIN) && (SCREENBUFFER != 1)
+//A card build names no skin: every one of them is on the card in full RGB565 and the game is
+//asked for one while it runs, see CardImages_UseSkin
+#if !defined(FORCESKIN) && (SCREENBUFFER != 1) && !CARDIMAGES
 #define FORCESKIN SKINBLACKWHITE
 #endif
 

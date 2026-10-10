@@ -5,6 +5,35 @@
 //PlatformESPboy.h / PlatformSDL.h
 #include "PlatformDevice.h"
 
+//1 = the art is read from a card while the game runs and none of it is in flash, see
+//cardimages.h. It needs a device that can read one (PLATFORM_HAS_CARD in Platform.h) and the card
+//file tools/mkcard.py writes. Every skin is then on the card in full RGB565 and the game can be
+//asked for any of them, which is what flash could never hold: the whole reason only one reduced
+//skin is built in is the 50944 bytes a device has for everything
+#ifndef CARDIMAGES
+#define CARDIMAGES 0
+#endif
+
+//How much RAM a card build keeps its art in. A picture small enough to be worth it is read once
+//and kept here, so drawing it again is a copy; a full screen one is read a row or a strip at a
+//time and never kept. A screen whose pictures do not all fit still draws correctly, it just reads
+//them again, which CardImages_Reads() counts. See the arena in cardimages.cpp
+#ifndef CARDARENA
+#define CARDARENA 5120
+#endif
+
+//1 = the full screen background is drawn as one plain colour (ColorWhite, which LoadGraphics
+//sets per skin) instead of as a picture. Every row of this game's background is already one
+//colour - a gradient down the screen in the default skin, plain white in the black & white one -
+//so what is lost is the gradient and nothing else.
+//It is for a card build: the background is 32768 bytes, it is not small enough to keep in the
+//arena, and a scrolling board redraws every strip of the screen, so it was 32 KB read off the
+//card every frame and more than everything else put together. A device sets this itself, see
+//PlatformCHGame.h; a skin whose background is a real picture must leave it off
+#ifndef FLATBACKGROUND
+#define FLATBACKGROUND 0
+#endif
+
 #define WINDOW_WIDTH 128
 #define WINDOW_HEIGHT 128
 #define HALFWINDOWWIDTH 64
@@ -204,8 +233,10 @@ static_assert(MAXWORLDPARTS >= LEVELPACKMAXPARTS, "a level of a pack in this bui
 //whose shades then go through the brightness rule in SetBufferBit, and with DITHERING come out
 //as a pattern of the two colours rather than as the nearer of them.
 //Set by the device header or the build
+//A card build names no skin either: every one of them is on the card in full RGB565 and the
+//game is asked for one while it runs, see CardImages_UseSkin
 #if !defined(FORCESKIN)
-  #if SCREENBUFFER == 1
+  #if (SCREENBUFFER == 1) && !CARDIMAGES
   #define FORCESKIN SKINBLACKWHITE
   #else
   #define FORCESKIN -1
@@ -219,7 +250,9 @@ static_assert(MAXWORLDPARTS >= LEVELPACKMAXPARTS, "a level of a pack in this bui
 //shows two colours, and keeping each of them in sixteen bits costs both flash and the work
 //of writing a colour per pixel. Every skin can be in the build here and picked in the
 //options, so which kind a picture is cannot be known at build time: skinImagesOneBit says
-#define ONEBITIMAGES SKINBUILT(SKINBLACKWHITE)
+//A card build has none of them: every skin is on the card in full RGB565, so there is no
+//reduced form to read and nothing of the one bit paths is built
+#define ONEBITIMAGES (!CARDIMAGES && SKINBUILT(SKINBLACKWHITE))
 
 //1 when the black & white skin is the only one in the build. Every picture is then one bit a pixel
 //and the paths that read RGB565 are dead: a build that is only ever going to draw one bit pictures
