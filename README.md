@@ -86,7 +86,7 @@ Every [release](https://github.com/joyrider3774/blips_embedded/releases) has a b
 | [PlayStation](https://en.wikipedia.org/wiki/PlayStation_(console)) | PSX_Blips.exe | open it in an emulator or send it to a console that runs unsigned code, the progress is not saved yet |
 | [PlayStation Portable](https://en.wikipedia.org/wiki/PlayStation_Portable) | PSP_Blips.PBP | rename it to EBOOT.PBP and put it in ms0:/PSP/GAME/Blips/ on the memory stick, or open it in PPSSPP |
 | [PlayStation Vita](https://en.wikipedia.org/wiki/PlayStation_Vita) | Vita_Blips.vpk | install it with VitaShell on a Vita with homebrew enabled, or open it in Vita3K |
-| [CHGame](https://github.com/bateske/CHGame) | `CHGame_Blips_1.bin` … (6 of them) **and** `BLIPS.DAT` | flash it over USB with the `chgame-upload` that comes with the board package: `chgame-upload -port COM6 flash CHGame_Blips_1.bin -run`. There is a binary per part, one of the six level packs each: the 50944 bytes of flash do not hold the game and all of its levels at once. **and copy `BLIPS.DAT` into the root of the microSD card**. The game's pictures are on that card and it draws nothing without it: it says so on a screen of its own and stops. Copy the file to a freshly formatted card if it says the file is in too many pieces. |
+| [CHGame](https://github.com/bateske/CHGame) | `CHGame_Blips.bin` **and** `BLIPS.DAT` | flash it over USB with the `chgame-upload` that comes with the board package: `chgame-upload -port COM6 flash CHGame_Blips.bin -run`, **and copy `BLIPS.DAT` into the root of the microSD card**. The game's pictures and its levels are both on that card and it draws nothing without it: it says so on a screen of its own and stops. Copy the file to a freshly formatted card if it says the file is in too many pieces. One binary holds all six level packs. |
 | Windows | Windows_Blips.exe | runs on its own, the progress is saved next to it in Blips.sav |
 | MS-DOS | DOS_Blips.zip | unzip BLIPS.EXE onto a DOS machine or into DOSBox and run it, the progress is saved next to it in BLIPS.SAV |
 
@@ -200,9 +200,8 @@ which changes what the device can hold:
 
 * both skins are on the card in full RGB565 and can be picked in the options, instead of the
   one black & white skin a flash build has room for;
-* the flash does not shrink and the levels are still split over six binaries. The built in
-  skin was already one bit a pixel and small, so the reader and the card drawing cost about as
-  much flash as the art they replace. What a card build buys here is the colour, not the room.
+* one binary holds all six level packs instead of a binary per pack, the levels being read
+  off the card too, and the game sits at 91% of the flash against 97% for a single pack.
 
 The card file is `BLIPS.DAT`, written into `releases/` by `tools/mkcard.py` as part of the build and
 released beside the binary. It holds a section per kind of data, so what the game later wants from
@@ -210,6 +209,13 @@ the card goes in beside the art rather than in a file of its own. A picture whos
 colour is kept as one colour a row rather than as pixels, which is what makes a plain background
 cost nothing. The reader is CHSd, which the board package ships; a flash build needs none of it.
 See `source/*/PlatformCHGame.h` for the switch and `tools/mkcard.py` for what is on the card.
+
+The levels are on the card as well, all six packs, in a section of their own beside the art.
+They go in exactly as flash held them, run length encoded by the game's own
+`tools/convert_levelpacks.py`, and the game's reader walks one from the card a piece at a time
+instead of through a pointer: nothing of a pack is held in RAM that was not held before. See
+`CARD_HAS_LEVELS` in `cardindex.h` and the `LVLS` section in `tools/mkcard.py`.
+
 
 The Windows build draws through the same LovyanGFX 1.1.9, see `platforms/windows/CMakeLists.txt`.
 

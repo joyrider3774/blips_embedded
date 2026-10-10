@@ -105,17 +105,11 @@ SKINS = 2
 TARGETS = [
     ("ESPboy", "", {}),
     ("GamebuinoMeta", "", {}),
-    #The CHGame has 50944 bytes for everything, which leaves about 5700 for level data, so
-    #a build takes one level pack and the packs are spread over a binary each. The packs are
-    #kept run length encoded and the two big ones were cut in half in assets/levelpacks,
-    #which is what brings them all inside that. The bit is written out as a number here
-    #because that is what the build hands over, see LP_ in Defines.h
-    ("CHGame", "_1", {"CHGAME_SAVE_VARIANT": 1, "LEVELPACKS": 1 << 0}),    #bips_1.bip            3400 bytes encoded
-    ("CHGame", "_2", {"CHGAME_SAVE_VARIANT": 2, "LEVELPACKS": 1 << 1}),    #bips_2.bip            3968 bytes encoded
-    ("CHGame", "_3", {"CHGAME_SAVE_VARIANT": 3, "LEVELPACKS": 1 << 2}),    #bips_gold.bip         2765 bytes encoded
-    ("CHGame", "_4", {"CHGAME_SAVE_VARIANT": 4, "LEVELPACKS": 1 << 3}),    #bips_gold_2_players.bip 2822 bytes encoded
-    ("CHGame", "_5", {"CHGAME_SAVE_VARIANT": 5, "LEVELPACKS": 1 << 4}),    #bips_platinum_1.bip   2905 bytes encoded
-    ("CHGame", "_6", {"CHGAME_SAVE_VARIANT": 6, "LEVELPACKS": 1 << 5}),    #bips_platinum_2.bip   2957 bytes encoded
+    # The levels are read off the card as well now, so none of them are in the flash and one
+    # binary holds every pack: it was a binary per pack before, six of them. See CARD_HAS_LEVELS
+    # in cardindex.h and the LVLS section in tools/mkcard.py. LEVELPACKS still names them all,
+    # which is what sizes the pool of world parts for the busiest level any pack has
+    ("CHGame", "", {"LEVELPACKS": "LP_ALL"}),
     ("PyBadge", "", {}),
     ("PyGamer", "", {}),
     ("PicoSystem", "", {}),

@@ -15,10 +15,11 @@
 #define CARD_FILE_83 "BLIPS   DAT"
 
 //every skin and picture name, hashed: a card made by another build has another stamp
-#define CARD_STAMP 0xAAC98E10UL
+#define CARD_STAMP 0x205D86B8UL
 
 //the sections of the container, by the name its table holds. Levels will be another one
 #define CARD_SEC_IMAGES "IMGS"
+#define CARD_SEC_LEVELS "LVLS"
 
 //1 when any picture is kept as one colour a row, see FMT_ROWS. The game builds the
 //code that draws one only then: a card without any is a game that need not carry it
@@ -54,3 +55,12 @@ enum CardImage : uint8_t
 	CARD_IMG_TITLESCREEN = 11,
 	CARD_IMG_WALL = 12,
 };
+
+//1 when the card holds the level packs too, so the game reads them from there and not
+//out of flash. 0 leaves everything about the levels as it was
+#define CARD_HAS_LEVELS 1
+
+#define CARD_LEVEL_COUNT 6
+
+//the packs, in the order the index holds them, by the name the game knows
+#define CARD_LEVEL_NAMES { "bips_1.bip", "bips_2.bip", "bips_gold.bip", "bips_gold_2_players.bip", "bips_platinum_1.bip", "bips_platinum_2.bip" }
