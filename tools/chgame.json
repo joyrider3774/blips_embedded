@@ -1,0 +1,12 @@
+{
+  "id": "blips",
+  "title": "BLIPS",
+  "author": "Willems Davy",
+  "version": "1.0",
+  "description": "A Remake of the dos Bips, Bips Gold and Bips Platinum game from Bryant Brownell. It is a Puzzle game which is a variation of sokoban",
+  "genre": "Puzzle",
+  "license": "MIT",
+  "url": "https://github.com/joyrider3774/blips_embedded",
+  "sourceUrl": "https://github.com/joyrider3774/blips_embedded",
+  "sdcard": "sdcard"
+}
