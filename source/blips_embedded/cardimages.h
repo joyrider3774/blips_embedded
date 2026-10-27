@@ -2,7 +2,7 @@
 #define CARDIMAGES_H
 
 #include <stdint.h>
-#include "defines.h"
+#include "Defines.h"
 
 //The art read from a card instead of built into flash, for a build with CARDIMAGES on.
 //
