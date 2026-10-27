@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <string.h>
-#include "defines.h"
+#include "Defines.h"
 #include "Platform.h"
 #include "cardimages.h"
 
