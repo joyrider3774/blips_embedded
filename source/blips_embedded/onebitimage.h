@@ -10,7 +10,7 @@
 //compiled into a game that is not.
 
 #include <stdint.h>
-#include "defines.h"
+#include "Defines.h"
 #include "Platform.h"
 
 //Temporary, see CHGAME_TIMING in Platform.h: how many rows have been unpacked and how many have
